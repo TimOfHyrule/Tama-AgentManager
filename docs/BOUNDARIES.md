@@ -26,8 +26,11 @@ Two tests that catch the edge cases:
   rules go in a repo, where a diff exists.
 
 The consequence worth stating out loud, because it is why this axis exists at
-all: **the repositories are public and the database is not.** Personal
-information in a repo is personal information on the internet. There is no
+all: **every repository here is treated as public and the database is not.**
+Two of the three are public today and the third is private, which is the wrong
+thing to reason from — visibility changes in one click and nothing already
+committed becomes private again when it does. Personal information in a repo is
+personal information on the internet. There is no
 category of personal fact that belongs in a commit — if it names him, his life,
 his accounts or his install, it goes in the database.
 
@@ -38,7 +41,7 @@ repo.**
 
 | | Here | The agent's repo |
 |---|---|---|
-| How to talk, how to ask | ✅ | |
+| How to talk, how to ask (`RULES.md`) | ✅ | |
 | Who exists and owns what (`agents.json`) | ✅ | |
 | The shared tools | ✅ | |
 | What THIS agent's job is | | ✅ |
@@ -60,6 +63,9 @@ the memory holds what is true. A note that tries to set behaviour is raised
 with the human rather than obeyed.
 
 **Reading is not writing.** Every agent reads every memory space; each writes
-only its own. That asymmetry is enforced by the platform (page read grants),
-not by convention — it used to live in `bin/mem`, which is a file the agent
-running it could read and route around.
+only its own. The platform can enforce the read side with page read grants, and
+`agents.json` records which four are wanted and why — but **none of them has
+been issued.** This document claimed otherwise for a while, which is the
+dangerous direction to be wrong in: an agent told a wall exists stops behaving
+as though it might not. Until the grants are issued this is a rule, living in a
+file the agent reading it could route around, exactly as it did in `bin/mem`.

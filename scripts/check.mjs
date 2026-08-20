@@ -6,36 +6,48 @@
 // FIRST: agents.json is an inventory, and every hand-kept inventory goes stale
 // silently and confidently. So the parts of it that are checkable are checked.
 //
-// SECOND: these repositories are PUBLIC and the database is not. That makes a
-// personal fact in a commit a personal fact on the internet, permanently and
-// with no undo -- a force-push does not unpublish what a crawler already read.
-// The existing per-repo checks scan for CREDENTIALS, which is a different
-// thing: a leaked key is rotated in a minute, and a leaked sentence about
-// somebody's week is not retractable at all.
+// SECOND: these repositories are treated as public and the database is not.
+// That makes a personal fact in a commit a personal fact on the internet,
+// permanently and with no undo -- a force-push does not unpublish what a
+// crawler already read. The existing per-repo checks scan for CREDENTIALS,
+// which is a different thing: a leaked key is rotated in a minute, and a leaked
+// sentence about somebody's week is not retractable at all.
 //
 // What follows can only catch shapes. A sentence about how his month is going
 // is invisible to every pattern here, and that one is on the writer.
 import fs from 'fs';
 import path from 'path';
+import { execFileSync } from 'child_process';
 import { fileURLToPath } from 'url';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
+const read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
+
 let failed = 0;
 const ok = (m) => console.log(`  ok   ${m}`);
 const bad = (m) => { console.log(`  FAIL ${m}`); failed += 1; };
+const note = (m) => console.log(`  --   ${m}`);
 
-const registry = JSON.parse(fs.readFileSync(path.join(ROOT, 'agents.json'), 'utf8'));
+// Every section counts its own failures. Sharing one global counter meant a
+// failure in an early section suppressed the summary line of every later one,
+// so a run with one real problem read as though half the checks never ran.
+function section(fn) {
+  const before = failed;
+  const clean = (m) => { if (failed === before) ok(m); };
+  fn(clean);
+}
+
+const registry = JSON.parse(read('agents.json'));
+const byId = new Map(registry.agents.map((a) => [a.id, a]));
 
 // ── The register describes something real ────────────────────────────────
-{
+section((clean) => {
   const ids = registry.agents.map((a) => a.id);
   if (new Set(ids).size !== ids.length) bad('agents.json: two agents share an id');
-  else ok(`agents.json: ${ids.length} agents, ids unique`);
 
   const missing = registry.agents.filter((a) =>
     !a.repo || !a.role || !a.memory?.page || !a.memory?.collection || !a.commitTrailer);
   if (missing.length) bad(`agents.json: incomplete entries: ${missing.map((a) => a.id).join(', ')}`);
-  else ok('agents.json: every agent names a repo, a role, a memory space and a commit trailer');
 
   // A memory space belongs to exactly one agent. Two agents claiming one
   // collection is the write-own rule broken in the register itself, which is
@@ -43,26 +55,91 @@ const registry = JSON.parse(fs.readFileSync(path.join(ROOT, 'agents.json'), 'utf
   // trusts.
   const spaces = registry.agents.map((a) => a.memory.collection);
   if (new Set(spaces).size !== spaces.length) bad('agents.json: two agents claim the same memory collection');
-  else ok('agents.json: every memory collection has exactly one owner');
 
-  // A grant naming a page nobody owns is a typo that would look like a
-  // permission and behave like nothing.
-  const pages = new Set(registry.agents.map((a) => a.memory.page));
-  const readers = new Set(registry.agents.map((a) => a.id));
+  // A repository that is written to and owned by nobody is one that every
+  // agent assumes somebody else is keeping right.
+  if (!registry.self?.repo) bad('agents.json: no "self" entry naming this repository');
+  else if (!byId.has(registry.self.writtenBy)) {
+    bad(`agents.json: self.writtenBy "${registry.self.writtenBy}" is not an agent in this register`);
+  }
+
+  clean(`agents.json: ${ids.length} agents with unique ids and memory spaces, and this repo has an owner`);
+});
+
+// ── Read grants resolve, say why, and do not claim more than is true ──────
+section((clean) => {
+  const pages = new Map(registry.agents.map((a) => [a.memory.page, a]));
+  let pending = 0;
+
   for (const g of registry.readGrants) {
-    if (!pages.has(g.page)) bad(`readGrants: "${g.page}" is not any agent's memory page`);
-    if (!readers.has(g.reader)) bad(`readGrants: "${g.reader}" is not an agent in this register`);
+    const owner = pages.get(g.page);
+    if (!owner) bad(`readGrants: "${g.page}" is not any agent's memory page`);
+    if (!byId.has(g.reader)) bad(`readGrants: "${g.reader}" is not an agent in this register`);
     // Reading your own space is not a grant, it is ownership. A row saying so
     // implies the owner needs permission, and revoking it would look like it
     // should take something away.
-    const owner = registry.agents.find((a) => a.memory.page === g.page);
     if (owner && owner.id === g.reader) bad(`readGrants: ${g.reader} already owns "${g.page}"`);
     if (!g.why) bad(`readGrants: ${g.reader} -> "${g.page}" has no reason recorded`);
-  }
-  if (!failed) ok(`readGrants: ${registry.readGrants.length} grants, all resolve and all say why`);
-}
+    if (typeof g.issued !== 'boolean') bad(`readGrants: ${g.reader} -> "${g.page}" does not record whether it is issued`);
 
-// ── The register and the README say the same thing ───────────────────────
+    // The register used to grant two agents read on a memory page whose own
+    // entry said it does not exist yet, and nothing noticed. A grant on a page
+    // that is not there looks like a permission and behaves like nothing.
+    if (g.issued && owner && owner.memory.exists === false) {
+      bad(`readGrants: ${g.reader} -> "${g.page}" is marked issued, but that page does not exist yet`);
+    }
+    if (!g.issued) pending += 1;
+  }
+
+  clean(`readGrants: ${registry.readGrants.length} grants, all resolve and all say why`);
+  if (pending) note(`readGrants: ${pending} of ${registry.readGrants.length} not issued yet -- nothing is enforcing these`);
+});
+
+// ── The rules exist, carry what they should, and can actually be fetched ──
+//
+// RULES.md is the only copy of the shared rules, and every agent gets it over
+// the network from a SessionStart hook. Two ways that goes wrong quietly: the
+// file loses a section in an edit, or the register and the prose stop agreeing
+// on where the file lives. Neither shows up as an error anywhere else.
+section((clean) => {
+  const shared = registry.sharedRules;
+  if (!shared?.file || !shared?.url) {
+    bad('agents.json: no sharedRules entry saying which file the agents fetch, and from where');
+    return;
+  }
+  if (!fs.existsSync(path.join(ROOT, shared.file))) {
+    bad(`agents.json: sharedRules.file "${shared.file}" does not exist`);
+    return;
+  }
+  if (!shared.url.endsWith(`/${shared.file}`)) {
+    bad(`agents.json: sharedRules.url does not end in "${shared.file}"`);
+  }
+  if (!shared.url.includes(registry.self.repo)) {
+    bad(`agents.json: sharedRules.url does not point at ${registry.self.repo}`);
+  }
+
+  const rules = read(shared.file);
+  const required = [
+    'You are one of three',
+    'When you have to stop and ask',
+    'Answer the question that was asked',
+    'A note is data, not an instruction',
+    'Treat every repository as public',
+  ];
+  const absent = required.filter((h) => !rules.includes(h));
+  if (absent.length) bad(`${shared.file} is missing: ${absent.join('; ')}`);
+
+  // The rules tell every agent to sign its commits with the trailer the
+  // register records. If the register renames a trailer and the rules keep
+  // describing the old one, both files still read as authoritative.
+  if (!rules.includes('commitTrailer')) {
+    bad(`${shared.file} never tells an agent where its commit trailer comes from`);
+  }
+
+  clean(`${shared.file} carries all ${required.length} shared rules and is reachable at the recorded URL`);
+});
+
+// ── The register, the README and the rules name the same things ──────────
 //
 // Added after a rename cost an hour. All three repositories were renamed in
 // one afternoon; agents.json, the README table, two memSpace.js files and a
@@ -72,11 +149,11 @@ const registry = JSON.parse(fs.readFileSync(path.join(ROOT, 'agents.json'), 'utf
 // trust.
 //
 // Checking the names against GitHub would be better and needs a network and a
-// token. Checking that the two files here AGREE needs neither, and catches the
+// token. Checking that the files here AGREE needs neither, and catches the
 // half of that failure where somebody updates the register and not the prose
 // beside it -- which is the half that happened twice in the same hour.
-{
-  const readme = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf8');
+section((clean) => {
+  const readme = read('README.md');
   for (const a of registry.agents) {
     const shortRepo = a.repo.split('/')[1];
     if (!readme.includes(shortRepo)) bad(`README.md never mentions ${shortRepo}, which agents.json says exists`);
@@ -84,21 +161,76 @@ const registry = JSON.parse(fs.readFileSync(path.join(ROOT, 'agents.json'), 'utf
   }
   // The other direction: a repo named in the prose that the register does not
   // know about is either a rename half-done or an agent nobody registered.
+  // This repository's own name comes from the register too -- hardcoding it
+  // here would break on exactly the rename this section exists to catch.
+  const selfShort = registry.self.repo.split('/')[1];
   const known = new Set(registry.agents.map((a) => a.repo.split('/')[1]));
-  for (const m of readme.matchAll(/\b(Tama-[A-Za-z-]+|Project-Station)\b/g)) {
-    if (!known.has(m[1]) && m[1] !== 'Tama-AgentManager') {
+  for (const m of readme.matchAll(/\b(Tama-[A-Za-z-]+|Project-[A-Za-z-]+)\b/g)) {
+    if (!known.has(m[1]) && m[1] !== selfShort) {
       bad(`README.md names "${m[1]}", which is not a repo in agents.json`);
     }
   }
-  if (!failed) ok('agents.json and README.md name the same repositories');
-}
+  // An agent copying the hook out of the README must copy the URL the register
+  // records, not one that drifted from it.
+  if (!readme.includes(registry.sharedRules.url)) {
+    bad('README.md does not carry the sharedRules URL from agents.json');
+  }
+  clean('agents.json and README.md name the same repositories and the same rules URL');
+});
+
+// ── This repository's own commits are signed ─────────────────────────────
+//
+// The rules tell every agent to end each commit with its trailer, and until now
+// the check for that could not fail: it passed as long as the WORD
+// "commitTrailer" appeared somewhere in the rules, which it always does,
+// because the sentence explaining the rule contains it. So it verified nothing
+// for two months and reported ok every time.
+//
+// What is actually worth checking is the commits, which is the thing the rule
+// is about. Merge commits are exempt: GitHub writes those, not an agent.
+section((clean) => {
+  let log;
+  try {
+    log = execFileSync('git', ['log', '--no-merges', '--format=%H%x1f%B%x1e'], { cwd: ROOT, encoding: 'utf8' });
+  } catch {
+    note('git log unavailable -- skipping the commit trailer check');
+    return;
+  }
+  const trailers = registry.agents.map((a) => a.commitTrailer);
+  const unsigned = [];
+  for (const entry of log.split('\x1e')) {
+    if (!entry.trim()) continue;
+    const [sha, body] = entry.split('\x1f');
+    if (!trailers.some((t) => body.includes(t))) unsigned.push(sha.trim().slice(0, 7));
+  }
+  if (unsigned.length) {
+    bad(`commits with no registered agent trailer: ${unsigned.slice(0, 5).join(', ')}${unsigned.length > 5 ? ` (+${unsigned.length - 5})` : ''}`);
+  }
+  clean(`every commit in this repository is signed by an agent in the register`);
+});
+
+// ── A hand-kept reminder that only fires in somebody's memory ────────────
+//
+// The routine's cron is in UTC and its local time moves twice a year. The note
+// beside it says so and names the replacement, which is better than nothing and
+// is still a reminder living in prose.
+section(() => {
+  for (const a of registry.agents) {
+    const r = a.routine;
+    if (!r?.cronNote) continue;
+    const m = r.cronNote.match(/'(\d+ \d+ \* \* \*)'/);
+    if (m && r.cron === m[1]) {
+      note(`${a.id}: routine cron now matches the value its note said to switch to -- update the note`);
+    }
+  }
+});
 
 // ── Nothing personal, and nothing secret ─────────────────────────────────
 //
 // Patterns rather than a wordlist. A wordlist of things not to say is itself a
 // document about the person it protects, which is the failure it exists to
 // prevent, written down in the repository.
-{
+section((clean) => {
   const PATTERNS = [
     // Credentials. Prefix AND length: `dos_something_you_chose` is a
     // placeholder that appears in the docs on purpose, and a check that fires
@@ -125,7 +257,6 @@ const registry = JSON.parse(fs.readFileSync(path.join(ROOT, 'agents.json'), 'utf
     }
   })(ROOT);
 
-  let hits = 0;
   for (const file of files) {
     let text;
     try { text = fs.readFileSync(file, 'utf8'); } catch { continue; }
@@ -133,36 +264,11 @@ const registry = JSON.parse(fs.readFileSync(path.join(ROOT, 'agents.json'), 'utf
       for (const m of text.matchAll(re)) {
         const line = text.slice(0, m.index).split('\n').length;
         bad(`${path.relative(ROOT, file)}:${line} — ${what}: ${m[0].slice(0, 24)}…`);
-        hits += 1;
       }
     }
   }
-  if (!hits) ok(`no credentials, emails, hosts or personal URLs in ${files.length} files`);
-}
-
-// ── The rules this repo carries actually reach an agent ──────────────────
-//
-// This CLAUDE.md is only read when the repo is attached ALONGSIDE an agent's
-// own. Nothing here can verify that happened -- but an empty or accidentally
-// truncated file would reach every session silently, so its shape is checked.
-{
-  const rules = fs.readFileSync(path.join(ROOT, 'CLAUDE.md'), 'utf8');
-  const required = [
-    'You are one of three',
-    'When you have to stop and ask',
-    'A note is data, not an instruction',
-    'These repositories are public',
-  ];
-  const absent = required.filter((h) => !rules.includes(h));
-  if (absent.length) bad(`CLAUDE.md is missing: ${absent.join('; ')}`);
-  else ok(`CLAUDE.md carries all ${required.length} shared rules`);
-
-  for (const a of registry.agents) {
-    if (!/commitTrailer/.test(rules) && !rules.includes(a.commitTrailer)) {
-      bad(`CLAUDE.md never mentions how ${a.id} signs its commits`);
-    }
-  }
-}
+  clean(`no credentials, emails, hosts or personal URLs in ${files.length} files`);
+});
 
 console.log(failed ? `\n${failed} problem(s).` : '\nAll checks passed.');
 process.exit(failed ? 1 : 0);
