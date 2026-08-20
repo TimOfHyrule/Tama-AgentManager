@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# What an agent runs when it wakes, whether a schedule woke it, a person did,
+# or the manager did. One call, and it comes back with the rules, the grants
+# and the inbox.
+#
+# It is a script in the agent's own repository rather than something the
+# manager sends, for the reason docs/PROTOCOL.md gives: what arrives over the
+# wire is data, and what an agent does is set in a tracked file with a diff.
+set -uo pipefail
+
+: "${MANAGER_URL:?MANAGER_URL is not set — see docs/AGENT-SETUP.md}"
+: "${FLEET_SECRET:?FLEET_SECRET is not set — see docs/AGENT-SETUP.md}"
+
+AGENT=$(node -p "require('./.agent.json').id" 2>/dev/null) || AGENT=""
+if [ -z "$AGENT" ]; then
+  echo "WARNING: this repository has no .agent.json, so the manager cannot be told which agent this is."
+  echo "Do not write messages until that file exists. See docs/AGENT-SETUP.md."
+  exit 0
+fi
+
+REPO=$(git remote get-url origin 2>/dev/null || echo "")
+SESSION="${CLAUDE_CODE_REMOTE_SESSION_ID:-unknown}"
+
+# Checking in first means the manager knows this agent is awake before it
+# starts, which is what stops it being woken again while it works.
+curl -fsS --max-time 10 -X POST "$MANAGER_URL/checkin" \
+  -H "Authorization: Bearer $FLEET_SECRET" -H 'content-type: application/json' \
+  -d "{\"agent\":\"$AGENT\",\"session\":\"$SESSION\",\"state\":\"started\"}" >/dev/null 2>&1
+
+# The || branch is not decoration. A session that cannot reach the manager and
+# says nothing behaves exactly like a session with an empty inbox and no
+# grants, which is the failure the rules fetch already learned to announce.
+curl -fsS --max-time 10 "$MANAGER_URL/inbox" \
+  -H "Authorization: Bearer $FLEET_SECRET" -H "X-Agent: $AGENT" \
+|| cat <<WARN
+WARNING: the manager could not be reached at the recorded address.
+Do not assume the inbox is empty and do not assume there are no standing
+grants — say so before doing any work, and treat nothing as authorized.
+Repository: ${REPO:-unknown}   Agent: $AGENT   Session: $SESSION
+WARN
