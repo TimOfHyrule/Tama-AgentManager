@@ -10,38 +10,62 @@
     "the way every hand-kept inventory goes stale, which is silently and",
     "confidently."
   ],
-
   "agents": [
     {
       "id": "project-station",
       "repo": "TimOfHyrule/Project-Station",
       "role": "Builds Tamarada itself. The only agent that changes the API the other two call.",
-      "writes": ["the Tamarada source"],
+      "writes": [
+        "the Tamarada source"
+      ],
       "neverWrites": [
         "the human's live install -- his pages, collections and records belong to him and to the two agents whose job is operating it"
       ],
-      "memory": { "page": "Platform memory", "collection": "platform_memory", "exists": false },
+      "memory": {
+        "page": "Platform memory",
+        "collection": "platform_memory",
+        "exists": false
+      },
       "commitTrailer": "Agent: project-station",
       "branchPolicy": "feature branch, then main -- this repo has CI and a real suite"
     },
     {
-      "id": "tama-agent",
-      "repo": "TimOfHyrule/Tama-Agent",
+      "id": "tama-system",
+      "repo": "TimOfHyrule/Tama-Agent-SystemAgent",
       "role": "Operates a Tamarada install over its HTTP API.",
-      "writes": ["its own repo", "the install, over the API"],
-      "neverWrites": ["another agent's memory space"],
-      "memory": { "page": "Agent memory", "collection": "agent_memory", "exists": true },
-      "commitTrailer": "Agent: tama-agent",
+      "writes": [
+        "its own repo",
+        "the install, over the API"
+      ],
+      "neverWrites": [
+        "another agent's memory space"
+      ],
+      "memory": {
+        "page": "Agent memory",
+        "collection": "agent_memory",
+        "exists": true
+      },
+      "commitTrailer": "Agent: tama-system",
       "branchPolicy": "main"
     },
     {
-      "id": "tama-life",
-      "repo": "TimOfHyrule/Tama-Life-Assisstant",
+      "id": "tama-general",
+      "repo": "TimOfHyrule/Tama-Agent-GeneralAssisstant",
       "role": "Runs the life side on top of that install.",
-      "writes": ["its own repo", "its memory space", "its page files (bin/life)"],
-      "neverWrites": ["another agent's memory space"],
-      "memory": { "page": "Life memory", "collection": "life_memory", "exists": true },
-      "commitTrailer": "Agent: tama-life",
+      "writes": [
+        "its own repo",
+        "its memory space",
+        "its page files (bin/life)"
+      ],
+      "neverWrites": [
+        "another agent's memory space"
+      ],
+      "memory": {
+        "page": "Life memory",
+        "collection": "life_memory",
+        "exists": true
+      },
+      "commitTrailer": "Agent: tama-general",
       "branchPolicy": "main",
       "routine": {
         "id": "trig_01SUm7JV8ZshUqDqpTcj3Jg6",
@@ -51,7 +75,6 @@
       }
     }
   ],
-
   "$readGrants": [
     "Who may READ whose memory. Every agent writes only its own; these are the",
     "exceptions on the read side, and they are one-directional by design.",
@@ -60,9 +83,25 @@
     "wall. NOTE: the grants themselves have not been issued yet."
   ],
   "readGrants": [
-    { "reader": "tama-agent", "page": "Life memory", "why": "'he is away next week' changes what is worth building" },
-    { "reader": "tama-life",  "page": "Agent memory", "why": "'the nightly report broke on Tuesday' explains a bad Tuesday" },
-    { "reader": "tama-agent", "page": "Platform memory", "why": "the platform changing is the thing that invalidates what this agent knows" },
-    { "reader": "tama-life",  "page": "Platform memory", "why": "same, one step further away" }
+    {
+      "reader": "tama-system",
+      "page": "Life memory",
+      "why": "'he is away next week' changes what is worth building"
+    },
+    {
+      "reader": "tama-general",
+      "page": "Agent memory",
+      "why": "'the nightly report broke on Tuesday' explains a bad Tuesday"
+    },
+    {
+      "reader": "tama-system",
+      "page": "Platform memory",
+      "why": "the platform changing is the thing that invalidates what this agent knows"
+    },
+    {
+      "reader": "tama-general",
+      "page": "Platform memory",
+      "why": "same, one step further away"
+    }
   ]
 }

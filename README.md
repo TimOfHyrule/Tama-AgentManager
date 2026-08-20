@@ -7,8 +7,8 @@ repository, not opened on its own.
 | Agent | Repo | Does |
 |---|---|---|
 | `project-station` | Project-Station | Builds Tamarada itself |
-| `tama-agent` | Tama-Agent | Operates an install over its HTTP API |
-| `tama-life` | Tama-Life-Assisstant | Runs the life side on top of it |
+| `tama-system` | Tama-Agent-SystemAgent | Operates an install over its HTTP API |
+| `tama-general` | Tama-Agent-GeneralAssisstant | Runs the life side on top of it |
 
 `agents.json` is the machine-readable version, and the one to trust: it records
 what each agent owns, which memory space it writes, how it signs a commit, and

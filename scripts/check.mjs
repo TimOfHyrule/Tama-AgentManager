@@ -62,6 +62,37 @@ const registry = JSON.parse(fs.readFileSync(path.join(ROOT, 'agents.json'), 'utf
   if (!failed) ok(`readGrants: ${registry.readGrants.length} grants, all resolve and all say why`);
 }
 
+// ── The register and the README say the same thing ───────────────────────
+//
+// Added after a rename cost an hour. All three repositories were renamed in
+// one afternoon; agents.json, the README table, two memSpace.js files and a
+// routine prompt all went on naming repositories that no longer existed. Every
+// one of them still parsed, still passed, and still read as authoritative --
+// the register in particular, which is the file everything else is told to
+// trust.
+//
+// Checking the names against GitHub would be better and needs a network and a
+// token. Checking that the two files here AGREE needs neither, and catches the
+// half of that failure where somebody updates the register and not the prose
+// beside it -- which is the half that happened twice in the same hour.
+{
+  const readme = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf8');
+  for (const a of registry.agents) {
+    const shortRepo = a.repo.split('/')[1];
+    if (!readme.includes(shortRepo)) bad(`README.md never mentions ${shortRepo}, which agents.json says exists`);
+    if (!readme.includes(a.id)) bad(`README.md never mentions the agent id "${a.id}"`);
+  }
+  // The other direction: a repo named in the prose that the register does not
+  // know about is either a rename half-done or an agent nobody registered.
+  const known = new Set(registry.agents.map((a) => a.repo.split('/')[1]));
+  for (const m of readme.matchAll(/\b(Tama-[A-Za-z-]+|Project-Station)\b/g)) {
+    if (!known.has(m[1]) && m[1] !== 'Tama-AgentManager') {
+      bad(`README.md names "${m[1]}", which is not a repo in agents.json`);
+    }
+  }
+  if (!failed) ok('agents.json and README.md name the same repositories');
+}
+
 // ── Nothing personal, and nothing secret ─────────────────────────────────
 //
 // Patterns rather than a wordlist. A wordlist of things not to say is itself a
