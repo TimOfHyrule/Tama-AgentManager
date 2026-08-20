@@ -37,69 +37,91 @@
     "delivery": "SessionStart hook in each agent repo's .claude/settings.json",
     "installedIn": []
   },
+  "$agents": [
+    "These are agent RECORDS, in the shape docs/AGENT-RECORD.md defines. They are",
+    "the seed: the three that exist today, in a form CI can validate before any of",
+    "it is written into somebody's live install.",
+    "",
+    "An agent is a record and not a repository. `repo` is one nullable field on it",
+    "-- where this agent's code lives, if it has code -- and an agent with no repo",
+    "is a normal agent. Fields prefixed with $ are notes for a reader here and are",
+    "not part of the record.",
+    "",
+    "Nothing in a record sets behaviour. `rulesUrl` says where the rules are; the",
+    "rules themselves stay in a file with a diff."
+  ],
+  "recordVersion": 1,
   "agents": [
     {
       "id": "project-station",
-      "repo": "TimOfHyrule/Project-Station",
+      "displayName": "Project Station",
       "role": "Builds Tamarada itself. The only agent that changes the API the other two call.",
-      "writes": [
-        "the Tamarada source"
-      ],
-      "neverWrites": [
-        "the human's live install -- his pages, collections and records belong to him and to the two agents whose job is operating it"
-      ],
+      "rulesUrl": "https://raw.githubusercontent.com/TimOfHyrule/Tama-AgentManager/main/RULES.md",
+      "repo": "TimOfHyrule/Project-Station",
+      "commitTrailer": "Agent: project-station",
       "memory": {
         "page": "Platform memory",
         "collection": "platform_memory",
         "exists": false
       },
-      "commitTrailer": "Agent: project-station",
-      "branchPolicy": "feature branch, then main -- this repo has CI and a real suite"
+      "keyId": null,
+      "routine": null,
+      "$writes": [
+        "the Tamarada source"
+      ],
+      "$neverWrites": [
+        "the human's live install -- his pages, collections and records belong to him and to the two agents whose job is operating it"
+      ]
     },
     {
       "id": "tama-system",
-      "repo": "TimOfHyrule/Tama-Agent-SystemAgent",
+      "displayName": "Tama System",
       "role": "Operates a Tamarada install over its HTTP API.",
-      "writes": [
-        "its own repo",
-        "the install, over the API"
-      ],
-      "neverWrites": [
-        "another agent's memory space"
-      ],
+      "rulesUrl": "https://raw.githubusercontent.com/TimOfHyrule/Tama-AgentManager/main/RULES.md",
+      "repo": "TimOfHyrule/Tama-Agent-SystemAgent",
+      "commitTrailer": "Agent: tama-system",
       "memory": {
         "page": "Agent memory",
         "collection": "agent_memory",
         "exists": true
       },
-      "commitTrailer": "Agent: tama-system",
-      "branchPolicy": "main"
+      "keyId": null,
+      "routine": null,
+      "$writes": [
+        "its own repo",
+        "the install, over the API"
+      ],
+      "$neverWrites": [
+        "another agent's memory space"
+      ]
     },
     {
       "id": "tama-general",
-      "repo": "TimOfHyrule/Tama-Agent-GeneralAssisstant",
+      "displayName": "Tama Life",
       "role": "Runs the life side on top of that install.",
-      "writes": [
-        "its own repo",
-        "its memory space",
-        "its page files (bin/life)"
-      ],
-      "neverWrites": [
-        "another agent's memory space"
-      ],
+      "rulesUrl": "https://raw.githubusercontent.com/TimOfHyrule/Tama-AgentManager/main/RULES.md",
+      "repo": "TimOfHyrule/Tama-Agent-GeneralAssisstant",
+      "commitTrailer": "Agent: tama-general",
       "memory": {
         "page": "Life memory",
         "collection": "life_memory",
         "exists": true
       },
-      "commitTrailer": "Agent: tama-general",
-      "branchPolicy": "main",
+      "keyId": null,
       "routine": {
         "id": "trig_01SUm7JV8ZshUqDqpTcj3Jg6",
         "name": "Tama-Life 每日開工 (06:00 Vancouver)",
         "cron": "0 13 * * *",
         "cronNote": "UTC. 06:00 PDT. Becomes 05:00 local when Vancouver returns to PST in November -- change to '0 14 * * *' then."
-      }
+      },
+      "$writes": [
+        "its own repo",
+        "its memory space",
+        "its page files (bin/life)"
+      ],
+      "$neverWrites": [
+        "another agent's memory space"
+      ]
     }
   ],
   "$readGrants": [

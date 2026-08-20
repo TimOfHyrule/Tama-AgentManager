@@ -40,14 +40,48 @@ function section(fn) {
 const registry = JSON.parse(read('agents.json'));
 const byId = new Map(registry.agents.map((a) => [a.id, a]));
 
-// ── The register describes something real ────────────────────────────────
+// ── Every agent is a valid record ────────────────────────────────────────
+//
+// An agent is a record, not a repository -- docs/AGENT-RECORD.md says why. The
+// entries here are the seed for that record, so they are held to its shape
+// before any of it is written into a live install, where a missing field is a
+// row somebody has to go and fix by hand.
 section((clean) => {
   const ids = registry.agents.map((a) => a.id);
   if (new Set(ids).size !== ids.length) bad('agents.json: two agents share an id');
+  if (registry.recordVersion !== 1) bad('agents.json: no recordVersion, or one this check does not know');
 
-  const missing = registry.agents.filter((a) =>
-    !a.repo || !a.role || !a.memory?.page || !a.memory?.collection || !a.commitTrailer);
-  if (missing.length) bad(`agents.json: incomplete entries: ${missing.map((a) => a.id).join(', ')}`);
+  // Present and non-empty; `repo`, `keyId` and `routine` may be null but must
+  // still be there, so that a record with no repo reads as a decision rather
+  // than as a field somebody forgot.
+  const REQUIRED = ['id', 'displayName', 'role', 'rulesUrl'];
+  const NULLABLE = ['repo', 'keyId', 'routine'];
+
+  for (const a of registry.agents) {
+    const missing = REQUIRED.filter((f) => !a[f]);
+    if (missing.length) bad(`agents.json: ${a.id || '(no id)'} is missing ${missing.join(', ')}`);
+    const absent = NULLABLE.filter((f) => !(f in a));
+    if (absent.length) bad(`agents.json: ${a.id} does not record ${absent.join(', ')} (null is an answer; leaving it out is not)`);
+
+    if (!a.memory?.page || !a.memory?.collection) bad(`agents.json: ${a.id} has no memory space`);
+    else if (typeof a.memory.exists !== 'boolean') bad(`agents.json: ${a.id} does not say whether its memory space exists yet`);
+
+    // A trailer is how an agent signs a commit. Without a repo there is nothing
+    // to sign, and with one there had better be.
+    if (a.repo && !a.commitTrailer) bad(`agents.json: ${a.id} has a repo but no commitTrailer`);
+    if (!a.repo && a.commitTrailer) bad(`agents.json: ${a.id} has a commitTrailer but no repo to use it in`);
+
+    // The one field that could smuggle behaviour into a record. It says where
+    // the rules are; it must not be able to become the rules.
+    if (a.rulesUrl && !/^https:\/\//.test(a.rulesUrl)) bad(`agents.json: ${a.id} rulesUrl is not a URL`);
+  }
+
+  // The table in the doc and the fields here drift apart quietly, and the doc
+  // is what a person reads before writing the migration.
+  const doc = read('docs/AGENT-RECORD.md');
+  for (const f of [...REQUIRED, ...NULLABLE, 'commitTrailer', 'memory.page', 'memory.collection', 'memory.exists']) {
+    if (!doc.includes(`\`${f}\``)) bad(`docs/AGENT-RECORD.md never documents the field "${f}"`);
+  }
 
   // A memory space belongs to exactly one agent. Two agents claiming one
   // collection is the write-own rule broken in the register itself, which is
@@ -63,7 +97,7 @@ section((clean) => {
     bad(`agents.json: self.writtenBy "${registry.self.writtenBy}" is not an agent in this register`);
   }
 
-  clean(`agents.json: ${ids.length} agents with unique ids and memory spaces, and this repo has an owner`);
+  clean(`agents.json: ${ids.length} agent records, all valid against docs/AGENT-RECORD.md`);
 });
 
 // ── Read grants resolve, say why, and do not claim more than is true ──────
