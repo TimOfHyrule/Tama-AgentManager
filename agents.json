@@ -1,0 +1,68 @@
+{
+  "$comment": [
+    "The register of who exists. Before this file, the answer lived in one",
+    "human's head and in whichever conversation happened to be open.",
+    "",
+    "It is data rather than prose because three things read it: a person",
+    "orienting themselves, scripts/check.mjs holding it against reality, and",
+    "an agent session working out who its neighbours are. Prose would have",
+    "served the first and none of the others -- and would have gone stale in",
+    "the way every hand-kept inventory goes stale, which is silently and",
+    "confidently."
+  ],
+
+  "agents": [
+    {
+      "id": "project-station",
+      "repo": "TimOfHyrule/Project-Station",
+      "role": "Builds Tamarada itself. The only agent that changes the API the other two call.",
+      "writes": ["the Tamarada source"],
+      "neverWrites": [
+        "the human's live install -- his pages, collections and records belong to him and to the two agents whose job is operating it"
+      ],
+      "memory": { "page": "Platform memory", "collection": "platform_memory", "exists": false },
+      "commitTrailer": "Agent: project-station",
+      "branchPolicy": "feature branch, then main -- this repo has CI and a real suite"
+    },
+    {
+      "id": "tama-agent",
+      "repo": "TimOfHyrule/Tama-Agent",
+      "role": "Operates a Tamarada install over its HTTP API.",
+      "writes": ["its own repo", "the install, over the API"],
+      "neverWrites": ["another agent's memory space"],
+      "memory": { "page": "Agent memory", "collection": "agent_memory", "exists": true },
+      "commitTrailer": "Agent: tama-agent",
+      "branchPolicy": "main"
+    },
+    {
+      "id": "tama-life",
+      "repo": "TimOfHyrule/Tama-Life-Assisstant",
+      "role": "Runs the life side on top of that install.",
+      "writes": ["its own repo", "its memory space", "its page files (bin/life)"],
+      "neverWrites": ["another agent's memory space"],
+      "memory": { "page": "Life memory", "collection": "life_memory", "exists": true },
+      "commitTrailer": "Agent: tama-life",
+      "branchPolicy": "main",
+      "routine": {
+        "id": "trig_01SUm7JV8ZshUqDqpTcj3Jg6",
+        "name": "Tama-Life 每日開工 (06:00 Vancouver)",
+        "cron": "0 13 * * *",
+        "cronNote": "UTC. 06:00 PDT. Becomes 05:00 local when Vancouver returns to PST in November -- change to '0 14 * * *' then."
+      }
+    }
+  ],
+
+  "$readGrants": [
+    "Who may READ whose memory. Every agent writes only its own; these are the",
+    "exceptions on the read side, and they are one-directional by design.",
+    "Enforced by the platform since Project-Station gained page read grants --",
+    "before that it was a rule living in bin/mem, which is a fence and not a",
+    "wall. NOTE: the grants themselves have not been issued yet."
+  ],
+  "readGrants": [
+    { "reader": "tama-agent", "page": "Life memory", "why": "'he is away next week' changes what is worth building" },
+    { "reader": "tama-life",  "page": "Agent memory", "why": "'the nightly report broke on Tuesday' explains a bad Tuesday" },
+    { "reader": "tama-agent", "page": "Platform memory", "why": "the platform changing is the thing that invalidates what this agent knows" },
+    { "reader": "tama-life",  "page": "Platform memory", "why": "same, one step further away" }
+  ]
+}
