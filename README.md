@@ -170,6 +170,23 @@ The environment it needs: `DATABASE_URL`, `FLEET_SECRET`, and optionally
 `WAKE_BUDGET_PER_DAY` and `WAKE_SESSIONS`. It refuses to start without the
 first two rather than serving requests it cannot honour.
 
+### Deploying it
+
+A service of its own, on its own database, reachable at its own name. The
+migrations run at boot from `db/`, `/health` is the healthcheck, and
+`railway.json` carries the rest.
+
+Sharing a domain with the install is fine and sharing anything else is not. A
+subdomain is a DNS record; what has to stay separate is the process serving the
+request and the database behind it. Point the record straight at the manager
+rather than through anything the install also depends on — the manager is what
+should still answer when the install does not.
+
+One consequence of the shared name: a browser treats `manager.example.com` and
+`example.com` as one site, so the session cookie takes the `__Host-` prefix,
+which browsers refuse to set with a `Domain` attribute at all. That is what
+stops a cookie written on the parent name from arriving here.
+
 ## Checking it
 
 ```bash
