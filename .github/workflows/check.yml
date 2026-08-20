@@ -1,0 +1,22 @@
+# The check existed for a while with nothing that ran it, which is the same
+# failure it was written to catch: a thing that is only right while somebody
+# remembers to look.
+name: check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The commit trailer check reads history. A shallow clone would see
+          # one commit and pass on a branch full of unsigned ones.
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node scripts/check.mjs

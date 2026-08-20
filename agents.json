@@ -10,6 +10,33 @@
     "the way every hand-kept inventory goes stale, which is silently and",
     "confidently."
   ],
+  "$self": [
+    "This repository. It is not an agent -- nothing here wakes up -- but it is",
+    "written to, and a repository nobody owns is one every agent assumes someone",
+    "else is keeping right."
+  ],
+  "self": {
+    "repo": "TimOfHyrule/Tama-AgentManager",
+    "writtenBy": "project-station",
+    "why": "It carries the rules the other two run under, and project-station is the only agent whose job is the machinery rather than the running of it."
+  },
+  "$sharedRules": [
+    "How RULES.md reaches an agent. Declaring the marketplace and plugin in a",
+    "repository's .claude/settings.json was tried first and does not work in a",
+    "cloud session: no marketplace is registered and no plugin is installed. A",
+    "SessionStart hook in the same file does fire, with nothing to install and no",
+    "version to bump -- every session fetches the current file.",
+    "",
+    "The `||` branch is the whole point. A fetch that fails silently would leave a",
+    "session behaving as though no rules were ever written, which is the failure",
+    "this mechanism exists to end."
+  ],
+  "sharedRules": {
+    "file": "RULES.md",
+    "url": "https://raw.githubusercontent.com/TimOfHyrule/Tama-AgentManager/main/RULES.md",
+    "delivery": "SessionStart hook in each agent repo's .claude/settings.json",
+    "installedIn": []
+  },
   "agents": [
     {
       "id": "project-station",
@@ -78,30 +105,36 @@
   "$readGrants": [
     "Who may READ whose memory. Every agent writes only its own; these are the",
     "exceptions on the read side, and they are one-directional by design.",
-    "Enforced by the platform since Project-Station gained page read grants --",
-    "before that it was a rule living in bin/mem, which is a fence and not a",
-    "wall. NOTE: the grants themselves have not been issued yet."
+    "",
+    "NOT ONE OF THESE HAS BEEN ISSUED. `issued` records that, per grant, because",
+    "the docs beside this file spent a while claiming the platform was already",
+    "enforcing it -- which is the dangerous direction to be wrong in. A grant may",
+    "only be marked issued once its page exists; scripts/check.mjs enforces that."
   ],
   "readGrants": [
     {
       "reader": "tama-system",
       "page": "Life memory",
-      "why": "'he is away next week' changes what is worth building"
+      "why": "'he is away next week' changes what is worth building",
+      "issued": false
     },
     {
       "reader": "tama-general",
       "page": "Agent memory",
-      "why": "'the nightly report broke on Tuesday' explains a bad Tuesday"
+      "why": "'the nightly report broke on Tuesday' explains a bad Tuesday",
+      "issued": false
     },
     {
       "reader": "tama-system",
       "page": "Platform memory",
-      "why": "the platform changing is the thing that invalidates what this agent knows"
+      "why": "the platform changing is the thing that invalidates what this agent knows",
+      "issued": false
     },
     {
       "reader": "tama-general",
       "page": "Platform memory",
-      "why": "same, one step further away"
+      "why": "same, one step further away",
+      "issued": false
     }
   ]
 }
