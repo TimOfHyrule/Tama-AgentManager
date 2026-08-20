@@ -1,7 +1,14 @@
 {
-  "name": "tama-agentmanager",
-  "owner": { "name": "TimOfHyrule" },
+  "name": "tama-agents",
+  "owner": {
+    "name": "TimOfHyrule"
+  },
   "plugins": [
-    { "name": "tama-fleet", "source": "./plugins/tama-fleet" }
-  ]
+    {
+      "name": "tama-fleet",
+      "source": "./plugins/tama-fleet",
+      "description": "The shared rules every agent on this account runs under."
+    }
+  ],
+  "description": "Shared rules and register for the agents on this account."
 }

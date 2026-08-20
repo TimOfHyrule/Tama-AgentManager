@@ -1,0 +1,15 @@
+{
+  "extraKnownMarketplaces": {
+    "tama-agents": {
+      "source": {
+        "source": "github",
+        "repo": "TimOfHyrule/Tama-AgentManager",
+        "ref": "claude/agentmanager-review-nr3c1l"
+      },
+      "autoUpdate": true
+    }
+  },
+  "enabledPlugins": {
+    "tama-fleet@tama-agents": true
+  }
+}

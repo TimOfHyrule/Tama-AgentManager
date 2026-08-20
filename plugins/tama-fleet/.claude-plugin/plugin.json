@@ -1,5 +1,5 @@
 {
   "name": "tama-fleet",
-  "description": "The shared rules and the register for the agents on one Tamarada account.",
-  "version": "0.1.0"
+  "description": "The shared rules every agent on this account runs under.",
+  "author": { "name": "TimOfHyrule" }
 }

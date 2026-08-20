@@ -3,10 +3,7 @@
     "SessionStart": [
       {
         "hooks": [
-          {
-            "type": "command",
-            "command": "cat \"${CLAUDE_PLUGIN_ROOT}/RULES.md\""
-          }
+          { "type": "command", "command": "echo TAMA-FLEET-PLUGIN-LOADED-OK" }
         ]
       }
     ]
