@@ -163,9 +163,21 @@ section((clean) => {
     if (m.kind === 'task' && m.inReplyTo) bad(`${where} is a task with an inReplyTo`);
     if (m.inReplyTo && !ids.has(m.inReplyTo)) bad(`${where} answers "${m.inReplyTo}", which is not a message here`);
 
-    // The chain terminates at a person or it does not terminate.
-    if (m.authorizedBy && m.authorizedBy !== 'human' && !ids.has(m.authorizedBy)) {
-      bad(`${where}: authorizedBy "${m.authorizedBy}" is neither "human" nor a message here`);
+    // Who may write which value is the whole point of the field, and this
+    // check exists because the document did not always say. An agent writing
+    // "human" is an agent reporting that the human agreed, which is the same
+    // sentence an injected instruction produces. Authority is either a
+    // reference the manager can look up, or an approval the manager wrote
+    // itself -- never prose from the sender.
+    const auth = m.authorizedBy;
+    if (auth !== null && auth !== 'human' && !/^grant:[A-Za-z0-9_-]+$/.test(String(auth))) {
+      bad(`${where}: authorizedBy "${auth}" is not null, "human", or a grant reference`);
+    }
+    // Citing a grant is only checkable once grants are a record. Until then a
+    // grant reference is a claim wearing a lookup's clothes, which is the
+    // direction this repository has already been wrong in once.
+    if (typeof auth === 'string' && auth.startsWith('grant:')) {
+      bad(`${where}: cites ${auth}, but the grant record does not exist yet -- nothing can check it`);
     }
     // A status field is how a row acquires a second writer, which is how "who
     // changed this" stops having an answer.
@@ -175,6 +187,13 @@ section((clean) => {
   const doc = read('docs/MESSAGE-RECORD.md');
   for (const f of ['id', 'from', 'to', 'kind', 'body', 'inReplyTo', 'authorizedBy', 'createdAt']) {
     if (!doc.includes(`\`${f}\``)) bad(`docs/MESSAGE-RECORD.md never documents the field "${f}"`);
+  }
+  // The field is worth nothing without the sentence saying who may write it,
+  // and that sentence is what the file was missing.
+  for (const phrase of ['an agent may never write this', 'lineage, not authority']) {
+    if (!doc.toLowerCase().includes(phrase)) {
+      bad(`docs/MESSAGE-RECORD.md no longer says who may write authorizedBy ("${phrase}")`);
+    }
   }
 
   const unauthorized = log.messages.filter((m) => m.authorizedBy === null).length;

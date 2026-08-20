@@ -23,7 +23,7 @@ recipient reads it, the same way everything else here works.
 | `kind` | required | `task` or `reply`. Nothing else yet — see below. |
 | `body` | required | Plain text. What is being asked, or what happened. |
 | `inReplyTo` | nullable | The message this answers. Required on a `reply`, null on a `task`. |
-| `authorizedBy` | required | Where the authority for this came from. `human`, or the `id` of an authorized message. `null` is allowed and means something specific. |
+| `authorizedBy` | required | Where the authority for this came from: `null`, `grant:<id>`, or `human`. Who may write each value is the point of the field, not the values themselves. |
 | `createdAt` | required | When it was written. |
 
 ## Messages are append-only
@@ -51,22 +51,60 @@ as it would check anything else arriving in its context, and a task asking for
 something outside those is refused rather than performed — being addressed to
 it is not permission.
 
-`authorizedBy` is what makes that checkable rather than hopeful. It is `human`
-when a person decided, or the `id` of a message that was itself authorized,
-which makes a chain that terminates at a person or does not terminate at all.
+`authorizedBy` is what makes that checkable rather than hopeful. It is the
+defence against the failure that makes this system worth writing down at all:
+text from outside reaches one agent, and one agent can reach another. If an
+injected instruction can only ever produce an unauthorized message, it stops at
+the first agent instead of arriving at somebody's live install wearing a task's
+clothes.
 
-`authorizedBy: null` is legal and means: nothing traces this back to a human
-decision. A task like that is a **suggestion**. The recipient may read it,
-weigh it, and raise it — it may not act on it. That is the whole defence
-against the failure that makes this system worth writing down at all: text from
-outside reaches one agent, and one agent can start a session on another. If an
-injected instruction can only ever produce an unauthorized message, the chain
-stops at the first agent instead of arriving at somebody's live install wearing
-a task's clothes.
+### Who may write which value
 
-Which is the same rule as everywhere else here, one layer out. A memory note is
-data and not an instruction. A message is data and not an instruction. What
-makes something an instruction is a person, or a file with a diff.
+That only holds if the sender cannot write the field freely, and for a while
+this file did not say who could. The gap made the whole thing decorative: an
+agent writing `human` is an agent telling you that you agreed, which is exactly
+the sentence an injected instruction would also produce. A field anybody can
+fill in proves whatever its writer wanted to prove.
+
+So the values are split by who is able to produce them:
+
+- **`null`** — anything may write it, and it means nothing traces this back to a
+  decision. The recipient may read it, weigh it, and raise it. It may not act on
+  it.
+- **`grant:<id>`** — an agent may write it, because it is a *reference* and not
+  a claim. The grant lives with the manager, which checks that it exists, is
+  still live, names this agent, and covers what is being asked. An agent can
+  cite a grant; it cannot create one.
+- **`human`** — **an agent may never write this.** Only the manager writes it,
+  at the moment a person approved the message in the manager's own interface,
+  authenticated as themselves rather than through any agent.
+
+The line under all three: **a signature that travels through the agent is not a
+signature, it is the agent's account of one.** So it does not travel through the
+agent at all. The agent writes the request; the authority is attached to it
+somewhere the agent cannot reach.
+
+### A chain is lineage, not authority
+
+An earlier version of this file let a message cite another authorized message,
+making a chain that terminated at a person or did not terminate. It reads well
+and it leaks. A task approved for one thing can be cited by a second task asking
+for more, and nothing in between can tell the difference — the difference is in
+the prose, and the check is a lookup.
+
+So authority does not travel along the chain. `inReplyTo` still records what a
+message answers and that lineage is worth keeping, but a message that needs
+authority cites a grant or waits for the person. Nothing is authorized by
+standing next to something that was.
+
+### The grant record does not exist yet
+
+Nothing here can check a `grant:<id>` today, because grants are not yet a
+record. Until they are, `null` and an approval in the manager are the only two
+honest values, and `scripts/check.mjs` fails any message that cites a grant —
+for the same reason the read grants in `agents.json` all carry `issued: false`.
+This repository has already been wrong in the direction of claiming an
+enforcement that was not there, and that is the expensive direction.
 
 ## What must never be in a message
 

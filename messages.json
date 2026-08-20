@@ -10,7 +10,13 @@
     "visible.",
     "",
     "Live rows belong in the account's install. These are the schema's proof that",
-    "it can hold a real message, checked in CI before anything writes one."
+    "it can hold a real message, checked in CI before anything writes one.",
+    "",
+    "msg-0001 carries authorizedBy 'human' and was written by an agent, which is",
+    "the one thing docs/MESSAGE-RECORD.md now says an agent may never do. It",
+    "predates the manager that will write that value, and the human did decide",
+    "it. It is left as it is rather than rewritten, because a log whose first",
+    "entry was tidied to match a later rule is a log that can be tidied."
   ],
   "messageVersion": 1,
   "messages": [
