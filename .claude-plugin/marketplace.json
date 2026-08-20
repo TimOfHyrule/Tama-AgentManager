@@ -1,0 +1,7 @@
+{
+  "name": "tama-agentmanager",
+  "owner": { "name": "TimOfHyrule" },
+  "plugins": [
+    { "name": "tama-fleet", "source": "./plugins/tama-fleet" }
+  ]
+}
