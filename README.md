@@ -17,6 +17,24 @@ which agent may read whose memory. The read grants in it are recorded as wanted
 and **not one of them has been issued** — the write-own rule is a rule, not yet
 a wall.
 
+## An agent is a record, not a repository
+
+`docs/AGENT-RECORD.md` defines the record and says why the change was needed.
+The short version: a repository works as the definition of an agent only for
+one person, on one account, using one front door. A second person has no reason
+to own a GitHub account; an agent that is only a routine and a set of rules has
+no code to put anywhere; and quotas, audit and revocation cannot be answered by
+a file three sessions cache.
+
+`repo` becomes one nullable field on the record. Picking an agent by picking its
+repository keeps working for every agent that has one — it just stops being the
+only thing that knows an agent exists.
+
+The records belong in the account's own Tamarada install. The copies in
+`agents.json` are the seed and the schema, so they can be validated in CI before
+anything is written to a live install. `tama-system` writes them there;
+`project-station` does not touch a live install.
+
 ## Where a thing goes
 
 Two axes, both in `docs/BOUNDARIES.md`. The short version:
