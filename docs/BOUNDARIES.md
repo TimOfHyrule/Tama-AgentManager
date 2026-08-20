@@ -34,6 +34,46 @@ personal information on the internet. There is no
 category of personal fact that belongs in a commit — if it names him, his life,
 his accounts or his install, it goes in the database.
 
+## The third place — the manager
+
+Two axes answered every question until something started running. Now there is
+a category that is neither how an agent works nor a fact about him: **how the
+agents are governed.** Grants, approvals, messages, check-ins, keys by their
+identifier, and the audit that ties them together.
+
+It cannot go in a repository, because every repository here is public and half
+of it is secret. It cannot go in his install either, and that one is worth
+saying carefully, because it is the tempting answer: the install is already
+private, already running, already the place his data lives.
+
+**Two of the three agents can write to his install.** That is their job. So an
+approval stored there is an approval those agents can forge, and the wall that
+`docs/MESSAGE-RECORD.md` builds — authority that never passes through the hands
+of the thing asking for it — comes down the moment the authority is stored
+somewhere those hands can reach.
+
+So there is a third place: the manager's own database, which no agent has
+credentials for.
+
+The same test decides the interface. **The interface follows the data.** The
+approval button must live where the approvals live, or it is a button that
+writes somewhere an agent could have written anyway. A login in front of it
+does not change that: agents do not log in. They hold a key and call an API,
+and a login screen is not in that path.
+
+| | Repo | His install | The manager |
+|---|---|---|---|
+| Rules, tools, contracts | ✅ | | |
+| What is true about him | | ✅ | |
+| His pages, collections, records | | ✅ | |
+| Grants, approvals, audit | | | ✅ |
+| Messages between agents, check-ins | | | ✅ |
+| Which key was issued, and to whom | | | ✅ |
+
+A shared domain is not a shared boundary. The manager may answer at a
+subdomain of the same name — that is a DNS record, and the isolation that
+matters is which process serves the request and which database it reads.
+
 ## Axis 2 — which repo?
 
 **Shared behaviour here. Everything specific to one agent in that agent's own

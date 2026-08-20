@@ -22,6 +22,7 @@ recipient reads it, the same way everything else here works.
 | `to` | required | The agent it is addressed to, by `id`. |
 | `kind` | required | `task` or `reply`. Nothing else yet — see below. |
 | `body` | required | Plain text. What is being asked, or what happened. |
+| `area` | with a citation | Which area in `grants.json` this falls in. Required when `authorizedBy` cites a grant, because comparing a task to a grant is otherwise reading comprehension. |
 | `inReplyTo` | nullable | The message this answers. Required on a `reply`, null on a `task`. |
 | `authorizedBy` | required | Where the authority for this came from: `null`, `grant:<id>`, or `human`. Who may write each value is the point of the field, not the values themselves. |
 | `createdAt` | required | When it was written. |
@@ -75,14 +76,33 @@ So the values are split by who is able to produce them:
   a claim. The grant lives with the manager, which checks that it exists, is
   still live, names this agent, and covers what is being asked. An agent can
   cite a grant; it cannot create one.
-- **`human`** — **an agent may never write this.** Only the manager writes it,
-  at the moment a person approved the message in the manager's own interface,
-  authenticated as themselves rather than through any agent.
+- **`human`** — **an agent may never write this.** In fact nothing writes it
+  into the message: the person approves in the manager's own interface, the
+  manager writes a separate approval row, and the authority a recipient sees is
+  derived from the two together.
 
 The line under all three: **a signature that travels through the agent is not a
 signature, it is the agent's account of one.** So it does not travel through the
 agent at all. The agent writes the request; the authority is attached to it
 somewhere the agent cannot reach.
+
+### Approval is a row of its own
+
+The tidy version has the manager set `authorizedBy` to `human` on the message
+when you approve it. That gives one row two writers — the agent that wrote the
+request and the manager that blessed it — which is exactly the shape removed
+when `status` was removed, and for the same reason: a row with two writers is a
+row where "who wrote this" stops having an answer.
+
+So approving writes an approval, and the approval points at the message. The
+agent's row is still the agent's, unedited, exactly as it was sent. Whether a
+message is authorized is derived — a live grant it cites, or an approval that
+points at it — in the same way whether a task is finished is derived from
+whether a reply exists.
+
+It also means an approval carries what only an approval can: who approved, when,
+and from where. Those cannot live in the agent's row, because the agent was not
+there when they happened.
 
 ### A chain is lineage, not authority
 

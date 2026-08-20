@@ -1,9 +1,18 @@
 # Tama Agent Manager
 
-The register and the shared rules for three Claude Code agents that work on one
-Tamarada account. **Nothing here runs.** The rules in `RULES.md` reach those
-agents on their own, over the network at session start; see
+The register, the shared rules, and the manager for three Claude Code agents
+that work on one Tamarada account. The rules in `RULES.md` reach those agents on
+their own, over the network at session start; see
 [How the rules reach an agent](#how-the-rules-reach-an-agent).
+
+For most of this repository's life the first line said **nothing here runs**,
+and that was the point: a register that could only be read could not be a
+thing that broke. It is no longer true. `server/` is the manager — it holds the
+messages the agents send each other, the check-ins that say who is awake, and
+the approvals that are the only place authority comes from. It runs beside the
+install rather than inside it, on its own database, for the reason
+`docs/BOUNDARIES.md` gives: two of the three agents can write to that install,
+so an approval stored there is an approval those agents can write.
 
 | Agent | Repo | Does |
 |---|---|---|
@@ -110,6 +119,56 @@ The plugin route was tried first — a marketplace here, `extraKnownMarketplaces
 and `enabledPlugins` in each agent's settings — and does not work in a cloud
 session: nothing is registered and nothing is installed. Both attempts are in
 this repository's history if anyone is tempted to try it again.
+
+## The manager
+
+```bash
+npm install
+FLEET_SECRET=... DATABASE_URL=... npm start
+```
+
+Five routes, all of them agent-initiated, because the manager cannot call an
+agent — a Claude session is either mid-turn or does not exist.
+`docs/PROTOCOL.md` has the wire format and the reasoning; the short version is
+three questions asked of every request, and they are not equally strong.
+
+A shared secret says the request came from the fleet at all, and that one is a
+wall. The agent then names itself out of a file in its own repository, and
+**nothing verifies that** — it is recorded as a claim, cross-checked against the
+register, and never treated as proof. Authority is the third question and the
+only one that decides whether anything happens: a live grant the agent cited,
+or an approval a person wrote. Neither of those passes through the agent
+asking.
+
+The weak middle question is survivable because of what it does not buy. An
+agent borrowing another agent's name still cannot produce authority, so it
+gains a label and no access. What the name is really for is afterwards: every
+row carries the Claude session that wrote it, so a question about who asked for
+something is answered by opening that session and reading it.
+
+Two things are enforced by the database rather than by anybody remembering
+them. Messages, approvals, check-ins and the audit refuse updates and deletes
+with an exception rather than silently ignoring them; and `authorized_by` can
+only ever hold null or a grant citation, so the value that would mean *a person
+agreed* cannot be written by the thing that wants it to be true.
+
+| Route | |
+|---|---|
+| `POST /messages` | Write a task or a reply. Idempotent on a client-chosen id. |
+| `GET /inbox` | Unanswered messages, live grants, and where the rules are. |
+| `POST /checkin` | Awake, still working, or done — and on what. |
+| `POST /wake` | Ask that an agent be woken. The manager decides whether it is worth a session. |
+
+Waking is the only expensive thing here: a message is a row, a wake is a whole
+Claude session. So writing never wakes anybody, and the manager decides
+separately — on a budget, never one wake per message, never for a reply, and
+never for an agent already checked in as working. **A wake that is suppressed
+is written down**, because a dropped wake that leaves no trace makes a busy day
+and a broken one look identical.
+
+The environment it needs: `DATABASE_URL`, `FLEET_SECRET`, and optionally
+`WAKE_BUDGET_PER_DAY` and `WAKE_SESSIONS`. It refuses to start without the
+first two rather than serving requests it cannot honour.
 
 ## Checking it
 

@@ -38,6 +38,7 @@ function section(fn) {
 }
 
 const registry = JSON.parse(read('agents.json'));
+const grantSeed = JSON.parse(read('grants.json'));
 const byId = new Map(registry.agents.map((a) => [a.id, a]));
 
 // ── Every agent is a valid record ────────────────────────────────────────
@@ -177,7 +178,11 @@ section((clean) => {
     // grant reference is a claim wearing a lookup's clothes, which is the
     // direction this repository has already been wrong in once.
     if (typeof auth === 'string' && auth.startsWith('grant:')) {
-      bad(`${where}: cites ${auth}, but the grant record does not exist yet -- nothing can check it`);
+      const cited = grantSeed.grants.find((g) => g.id === auth.slice(6));
+      if (!cited) bad(`${where}: cites ${auth}, which is not a grant in grants.json`);
+      else if (!cited.issued) bad(`${where}: cites ${auth}, which is recorded as not issued -- nothing is honouring it`);
+      else if (!m.area) bad(`${where}: cites a grant without naming an area, so nothing can compare the two`);
+      else if (m.area !== cited.area) bad(`${where}: is area "${m.area}" but ${auth} covers "${cited.area}"`);
     }
     // A status field is how a row acquires a second writer, which is how "who
     // changed this" stops having an answer.
@@ -185,7 +190,7 @@ section((clean) => {
   }
 
   const doc = read('docs/MESSAGE-RECORD.md');
-  for (const f of ['id', 'from', 'to', 'kind', 'body', 'inReplyTo', 'authorizedBy', 'createdAt']) {
+  for (const f of ['id', 'from', 'to', 'kind', 'body', 'area', 'inReplyTo', 'authorizedBy', 'createdAt']) {
     if (!doc.includes(`\`${f}\``)) bad(`docs/MESSAGE-RECORD.md never documents the field "${f}"`);
   }
   // The field is worth nothing without the sentence saying who may write it,
@@ -199,6 +204,54 @@ section((clean) => {
   const unauthorized = log.messages.filter((m) => m.authorizedBy === null).length;
   clean(`messages.json: ${log.messages.length} message(s), all addressed and all tracing their authority`);
   if (unauthorized) note(`messages.json: ${unauthorized} with no authority chain -- those are suggestions, not tasks`);
+});
+
+// ── Grants are records, and none of them claims to exist ─────────────────
+//
+// A grant is the only thing an agent can cite to authorize itself, so the
+// citation has to be checkable and the seed has to be honest about the fact
+// that nothing is honouring it yet. docs/GRANT-RECORD.md says why the area is
+// a closed list: comparing a task to a sentence is reading comprehension, and
+// this file is a lookup.
+section((clean) => {
+  if (grantSeed.grantVersion !== 1) bad('grants.json: no grantVersion, or one this check does not know');
+
+  const areaIds = grantSeed.areas.map((a) => a.id);
+  if (new Set(areaIds).size !== areaIds.length) bad('grants.json: two areas share an id');
+  for (const a of grantSeed.areas) {
+    if (!a.id || !a.what) bad(`grants.json: area "${a.id ?? '(no id)'}" does not say what it covers`);
+  }
+
+  const ids = new Set();
+  for (const g of grantSeed.grants) {
+    const where = `grants.json: ${g.id ?? '(no id)'}`;
+    for (const f of ['id', 'grantee', 'area', 'why', 'issuedBy', 'issuedAt']) {
+      if (!g[f]) bad(`${where} is missing ${f}`);
+    }
+    for (const f of ['recipient', 'revokedAt']) {
+      if (!(f in g)) bad(`${where} does not record ${f} (null is an answer; leaving it out is not)`);
+    }
+    if (ids.has(g.id)) bad(`${where}: two grants share an id`);
+    ids.add(g.id);
+
+    if (!byId.has(g.grantee)) bad(`${where}: grantee "${g.grantee}" is not an agent in the register`);
+    if (g.recipient && !byId.has(g.recipient)) bad(`${where}: recipient "${g.recipient}" is not an agent in the register`);
+    if (!areaIds.includes(g.area)) bad(`${where}: area "${g.area}" is not one of the areas above`);
+    // There is exactly one issuer, and a field that could say otherwise is a
+    // field somebody will eventually put an agent in.
+    if (g.issuedBy !== 'human') bad(`${where}: issuedBy is "${g.issuedBy}" -- a grant has one issuer and it is a person`);
+    if (!('issued' in g)) bad(`${where} does not say whether it has been issued`);
+    // The mistake this repository already made once, in a new place.
+    if (g.issued) bad(`${where} claims to be issued, but the manager that would hold it does not exist yet`);
+  }
+
+  const doc = read('docs/GRANT-RECORD.md');
+  for (const f of ['id', 'grantee', 'area', 'recipient', 'why', 'issuedBy', 'issuedAt', 'revokedAt', 'issued']) {
+    if (!doc.includes(`\`${f}\``)) bad(`docs/GRANT-RECORD.md never documents the field "${f}"`);
+  }
+  if (!doc.includes('cannot mint one')) bad('docs/GRANT-RECORD.md no longer says an agent cannot mint a grant');
+
+  clean(`grants.json: ${grantSeed.grants.length} grant(s) across ${areaIds.length} areas, none claiming to be issued`);
 });
 
 // ── The rules exist, carry what they should, and can actually be fetched ──
