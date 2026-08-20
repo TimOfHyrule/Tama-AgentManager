@@ -14,7 +14,9 @@ If you are here to change something, the two files that matter are:
 - **`agents.json`** — who exists, what each owns, which memory space it writes,
   how it signs a commit, and who may read whose memory.
 
-`docs/AGENT-RECORD.md` defines what an agent is — a record, of which `repo` is
+`docs/MESSAGE-RECORD.md` defines how one agent asks another for something, and
+why a message can ask but never authorize. `docs/AGENT-RECORD.md` defines what
+an agent is — a record, of which `repo` is
 one nullable field. `docs/BOUNDARIES.md` says where a thing goes. `README.md` explains why this is
 a repository and not a folder in one of the others.
 

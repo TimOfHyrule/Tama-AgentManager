@@ -35,6 +35,25 @@ The records belong in the account's own Tamarada install. The copies in
 anything is written to a live install. `tama-system` writes them there;
 `project-station` does not touch a live install.
 
+## Agents do not talk to each other
+
+They write messages, and a message is a record too. `docs/MESSAGE-RECORD.md`
+defines it. There is deliberately no channel: a private line between two agents
+would make them easier to wire together and make *who told this agent to do
+that* unanswerable, which is the question this whole repository exists to keep
+answerable.
+
+Two properties carry the weight. Messages are **append-only** — a recipient
+answers with its own message rather than setting a status on somebody else's
+row, so every row still has exactly one writer. And every message records
+`authorizedBy`, a chain that ends at a person or does not end: a task with no
+chain is a *suggestion*, and the recipient may raise it but not act on it.
+
+That last one is the defence against the real failure. Text from outside reaches
+one agent, and one agent can start a session on another. An injected instruction
+can only ever produce an unauthorized message, so it stops at the first agent
+instead of arriving at a live install wearing a task's clothes.
+
 ## Where a thing goes
 
 Two axes, both in `docs/BOUNDARIES.md`. The short version:

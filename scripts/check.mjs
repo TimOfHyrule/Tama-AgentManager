@@ -129,6 +129,59 @@ section((clean) => {
   if (pending) note(`readGrants: ${pending} of ${registry.readGrants.length} not issued yet -- nothing is enforcing these`);
 });
 
+// ── Messages are records, and the ones here are valid ────────────────────
+//
+// There is no channel between two agents; there are rows. docs/MESSAGE-RECORD.md
+// says why, and the two things worth enforcing are both about authority rather
+// than shape: a reply has to point at what it answers, and a task has to say
+// where its authority came from -- `null` included, because null is what an
+// injected instruction looks like and the recipient is told to treat it as a
+// suggestion.
+section((clean) => {
+  const log = JSON.parse(read('messages.json'));
+  if (log.messageVersion !== 1) bad('messages.json: no messageVersion, or one this check does not know');
+
+  const ids = new Set(log.messages.map((m) => m.id));
+  if (ids.size !== log.messages.length) bad('messages.json: two messages share an id');
+
+  const senders = new Set([...byId.keys(), 'human']);
+  for (const m of log.messages) {
+    const where = `messages.json: ${m.id || '(no id)'}`;
+    for (const f of ['id', 'from', 'to', 'kind', 'body', 'createdAt']) {
+      if (!m[f]) bad(`${where} is missing ${f}`);
+    }
+    if (!('authorizedBy' in m)) bad(`${where} does not record authorizedBy (null is an answer; leaving it out is not)`);
+    if (!('inReplyTo' in m)) bad(`${where} does not record inReplyTo`);
+
+    if (!senders.has(m.from)) bad(`${where}: "${m.from}" is not an agent in the register, or "human"`);
+    if (!byId.has(m.to)) bad(`${where}: "${m.to}" is not an agent in the register`);
+    if (!['task', 'reply'].includes(m.kind)) bad(`${where}: kind "${m.kind}" is not task or reply`);
+
+    // A reply that points at nothing is a note, and a note addressed to one
+    // agent is the whiteboard this design refuses to have.
+    if (m.kind === 'reply' && !m.inReplyTo) bad(`${where} is a reply that does not say what it answers`);
+    if (m.kind === 'task' && m.inReplyTo) bad(`${where} is a task with an inReplyTo`);
+    if (m.inReplyTo && !ids.has(m.inReplyTo)) bad(`${where} answers "${m.inReplyTo}", which is not a message here`);
+
+    // The chain terminates at a person or it does not terminate.
+    if (m.authorizedBy && m.authorizedBy !== 'human' && !ids.has(m.authorizedBy)) {
+      bad(`${where}: authorizedBy "${m.authorizedBy}" is neither "human" nor a message here`);
+    }
+    // A status field is how a row acquires a second writer, which is how "who
+    // changed this" stops having an answer.
+    if ('status' in m) bad(`${where} has a status field -- a reply is how a task is answered`);
+  }
+
+  const doc = read('docs/MESSAGE-RECORD.md');
+  for (const f of ['id', 'from', 'to', 'kind', 'body', 'inReplyTo', 'authorizedBy', 'createdAt']) {
+    if (!doc.includes(`\`${f}\``)) bad(`docs/MESSAGE-RECORD.md never documents the field "${f}"`);
+  }
+
+  const unauthorized = log.messages.filter((m) => m.authorizedBy === null).length;
+  clean(`messages.json: ${log.messages.length} message(s), all addressed and all tracing their authority`);
+  if (unauthorized) note(`messages.json: ${unauthorized} with no authority chain -- those are suggestions, not tasks`);
+});
+
 // ── The rules exist, carry what they should, and can actually be fetched ──
 //
 // RULES.md is the only copy of the shared rules, and every agent gets it over
