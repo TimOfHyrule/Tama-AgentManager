@@ -1,0 +1,31 @@
+{
+  "$comment": [
+    "Standing authorizations. docs/GRANT-RECORD.md defines the record and says",
+    "why a citation is checkable when a claim is not.",
+    "",
+    "There are none yet, and that is not an oversight. A grant is issued by a",
+    "person in the manager's own interface, and the manager does not exist yet.",
+    "An empty list here is the honest state; a seeded example would be a row",
+    "claiming somebody authorized something.",
+    "",
+    "areas is the closed list scopes are drawn from. It is here rather than in",
+    "the database for one reason: widening what three agents may do without",
+    "asking should require a diff and a review, not a dropdown."
+  ],
+  "grantVersion": 1,
+  "areas": [
+    {
+      "id": "platform-infrastructure",
+      "what": "Changes to Tamarada itself that the agent tooling depends on -- keys, scopes, the records the agents read and write."
+    },
+    {
+      "id": "agent-register",
+      "what": "The register and the shared rules in this repository: who exists, what each owns, how they talk."
+    },
+    {
+      "id": "install-operations",
+      "what": "Operating an existing install over its HTTP API: pages, collections and records that already exist."
+    }
+  ],
+  "grants": []
+}
