@@ -11,8 +11,26 @@ if (!process.env.DATABASE_URL) {
   throw new Error('DATABASE_URL is not set. The manager has no database and will not pretend otherwise.');
 }
 
+// `pg` currently reads sslmode=require as verify-full, and in its next major
+// version the same string will mean libpq semantics instead -- which does not
+// verify the certificate at all. So an `npm update` would drop TLS verification
+// with nothing in the logs and no visible difference, which is the shape of
+// failure this repository keeps finding: a wall that stops being one quietly.
+//
+// Only an explicit weak mode is upgraded. A connection string with no sslmode
+// is left alone, so a local Postgres over a socket still works.
+function pinnedTls(url) {
+  const u = new URL(url);
+  const mode = u.searchParams.get('sslmode');
+  if (mode && ['prefer', 'require', 'verify-ca'].includes(mode)) {
+    u.searchParams.set('sslmode', 'verify-full');
+    console.log(`sslmode=${mode} pinned to verify-full`);
+  }
+  return u.toString();
+}
+
 export const pool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: pinnedTls(process.env.DATABASE_URL),
   // Neon scales to zero; a cold start is a slow first connection, not a fault.
   connectionTimeoutMillis: 15_000,
   max: 5,
