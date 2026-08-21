@@ -159,6 +159,40 @@ agreed* cannot be written by the thing that wants it to be true.
 | `POST /checkin` | Awake, still working, or done — and on what. |
 | `POST /wake` | Ask that an agent be woken. The manager decides whether it is worth a session. |
 
+## The page
+
+One page, and it is the only place an approval is written. It shows what is
+waiting on a person, which chat each agent currently is, the standing grants,
+and the last few wakes including the ones that were suppressed.
+
+**Nothing that a person does here accepts the fleet secret, and nothing an
+agent does accepts the session cookie.** That is the wall the whole design
+rests on, so it is tested in both directions rather than assumed: an agent
+presenting the fleet secret to the approve route gets bounced to the sign-in
+page, and a browser session presenting its cookie to the message route is told
+it is not from the fleet.
+
+Signing in is Google's authorization code flow, and the email arrives from
+Google's own userinfo endpoint over TLS rather than from a token this server
+decodes — there is no signature to verify and no library to keep current. Only
+the one recorded account gets in; every cookie signed for anybody else stops
+working the moment that variable changes.
+
+Two things follow from the manager answering at a subdomain of the name it
+governs, because a browser treats those as one site. The session cookie takes
+the `__Host-` prefix, which browsers refuse to set with a `Domain` attribute at
+all, so a cookie written on the parent name cannot arrive here. And every
+action carries a CSRF token, because `SameSite` does not separate two names a
+browser considers the same site.
+
+Approving writes an approval row and never touches the message. Issuing a grant
+is the other half — a grant is what an agent cites instead of waiting, so
+issuing one is how a whole category of work stops needing a click. Revoking is
+immediate and retroactive: a message citing a revoked grant goes back to being
+a suggestion on the next read, and the grant row stays, because a grant that
+could only be deleted would take with it the evidence that anything was ever
+authorised under it.
+
 Waking is the only expensive thing here: a message is a row, a wake is a whole
 Claude session. So writing never wakes anybody, and the manager decides
 separately — on a budget, never one wake per message, never for a reply, and
@@ -166,9 +200,13 @@ never for an agent already checked in as working. **A wake that is suppressed
 is written down**, because a dropped wake that leaves no trace makes a busy day
 and a broken one look identical.
 
-The environment it needs: `DATABASE_URL`, `FLEET_SECRET`, and optionally
-`WAKE_BUDGET_PER_DAY` and `WAKE_SESSIONS`. It refuses to start without the
-first two rather than serving requests it cannot honour.
+The environment it needs: `DATABASE_URL` and `FLEET_SECRET`, without which it
+refuses to start rather than serving requests it cannot honour. Then
+`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `ADMIN_EMAIL`, `SESSION_SECRET` and
+`PUBLIC_URL` for the page — missing those, the API still runs and the page says
+which ones are absent, which is worth knowing because until somebody can sign
+in there is no way to authorise anything at all. Optionally
+`WAKE_BUDGET_PER_DAY`, `SESSION_STALE_HOURS` and `WAKE_SESSIONS`.
 
 ### Deploying it
 

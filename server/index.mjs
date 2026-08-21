@@ -6,6 +6,8 @@ import { timingSafeEqual } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { q, migrate } from './db.mjs';
 import { agents, areas, rulesUrl, repoDisagrees } from './register.mjs';
+import * as auth from './auth.mjs';
+import { signInPage, notConfiguredPage, boardPage } from './ui.mjs';
 
 const FLEET_SECRET = process.env.FLEET_SECRET;
 if (!FLEET_SECRET || FLEET_SECRET.length < 24) {
@@ -37,6 +39,26 @@ function fleetOk(req) {
   const a = Buffer.from(got);
   const b = Buffer.from(FLEET_SECRET);
   return a.length === b.length && timingSafeEqual(a, b);
+}
+
+const html = (res, code, body) => {
+  res.writeHead(code, { 'content-type': 'text/html; charset=utf-8' });
+  res.end(body);
+};
+const seeOther = (res, to, extra = {}) => {
+  res.writeHead(303, { location: to, ...extra });
+  res.end();
+};
+
+async function readForm(req) {
+  const chunks = [];
+  let size = 0;
+  for await (const c of req) {
+    size += c.length;
+    if (size > 64 * 1024) throw new Error('form too large');
+    chunks.push(c);
+  }
+  return Object.fromEntries(new URLSearchParams(Buffer.concat(chunks).toString('utf8')));
 }
 
 async function readBody(req) {
@@ -247,15 +269,100 @@ async function postWake(body, claim) {
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://manager');
   try {
+    const route = `${req.method} ${url.pathname}`;
     if (url.pathname === '/health') return json(res, 200, { ok: true, agents: [...agents.keys()] });
 
+    // ── The person's half ────────────────────────────────────────────────
+    //
+    // These are the only routes a human uses, and none of them accepts the
+    // fleet secret. The agents cannot approve anything, which is the point:
+    // authority must not pass through the hands of the thing asking for it.
+    if (url.pathname === '/' || url.pathname.startsWith('/auth/')
+        || url.pathname === '/approve' || url.pathname.startsWith('/grants')) {
+      if (!auth.configured) return html(res, 503, notConfiguredPage(auth.missing));
+
+      if (route === 'GET /auth/login') {
+        const state = auth.newState();
+        return seeOther(res, auth.authorizeUrl(state), { 'set-cookie': auth.stateCookie(state) });
+      }
+
+      if (route === 'GET /auth/callback') {
+        if (!auth.stateOk(req, url.searchParams.get('state'))) {
+          return html(res, 400, signInPage('That sign-in did not come from here. Try again.'));
+        }
+        const code = url.searchParams.get('code');
+        if (!code) return html(res, 400, signInPage('Google sent no code back.'));
+        let email;
+        try { email = await auth.emailFromCode(code); }
+        catch (e) { return html(res, 502, signInPage(e.message)); }
+        if (email !== process.env.ADMIN_EMAIL) {
+          await audit('signin.refused', null, { reason: 'not the recorded account' });
+          return html(res, 403, signInPage('That account cannot approve anything here.'));
+        }
+        await audit('signin', email, {});
+        return seeOther(res, '/', { 'set-cookie': auth.issueCookie(email) });
+      }
+
+      const session = auth.readSession(req);
+      if (route === 'GET /') {
+        return html(res, 200, session ? await boardPage(session) : signInPage(null));
+      }
+      if (!session) return seeOther(res, '/');
+
+      // Everything past here changes something, so it is a POST carrying the
+      // token. SameSite alone does not separate this page from the Tamarada it
+      // governs -- a browser treats those two names as one site.
+      if (req.method !== 'POST') return seeOther(res, '/');
+      const form = await readForm(req);
+      if (!auth.csrfOk(session.email, form.csrf)) {
+        await audit('csrf.refused', session.email, { path: url.pathname });
+        return html(res, 403, signInPage('That form was stale. Reload and try again.'));
+      }
+
+      if (url.pathname === '/auth/logout') {
+        return seeOther(res, '/', { 'set-cookie': auth.clearCookie() });
+      }
+
+      // Approving writes a row of its own and never edits the message. The
+      // agent's row keeps exactly one writer, which is the same rule that
+      // removed `status`.
+      if (url.pathname === '/approve') {
+        await q(`insert into approval (message_id, approver) values ($1, $2)
+                 on conflict (message_id) do nothing`, [form.id, `human:${session.email}`]);
+        await audit('message.approved', session.email, { id: form.id });
+        return seeOther(res, '/');
+      }
+
+      if (url.pathname === '/grants') {
+        if (!agents.has(form.grantee)) return html(res, 400, signInPage('No such agent.'));
+        if (form.recipient && !agents.has(form.recipient)) return html(res, 400, signInPage('No such recipient.'));
+        if (!areas.has(form.area)) return html(res, 400, signInPage('No such area.'));
+        if (!form.why?.trim()) return html(res, 400, signInPage('A grant says why.'));
+        const id = (await q(`select 'g-' || lpad(nextval('grant_id_seq')::text, 4, '0') as id`)).rows[0].id;
+        await q(`insert into standing_grant (id, grantee, area, recipient, why, issued_by)
+                 values ($1,$2,$3,$4,$5,'human')`,
+          [id, form.grantee, form.area, form.recipient || null, form.why.trim()]);
+        await audit('grant.issued', session.email, { id, grantee: form.grantee, area: form.area });
+        return seeOther(res, '/');
+      }
+
+      if (url.pathname === '/grants/revoke') {
+        // Revoked, never deleted. A grant that could only be deleted would take
+        // with it the evidence that anything was ever authorised under it.
+        await q('update standing_grant set revoked_at = now() where id = $1 and revoked_at is null', [form.id]);
+        await audit('grant.revoked', session.email, { id: form.id });
+        return seeOther(res, '/');
+      }
+
+      return seeOther(res, '/');
+    }
+
+    // ── The agents' half ─────────────────────────────────────────────────
     if (!fleetOk(req)) return json(res, 401, { error: 'not from the fleet' });
 
     const body = req.method === 'GET' ? {} : await readBody(req);
     const claim = claimedAgent(req, body);
     if (claim.error) return json(res, 400, { error: claim.error });
-
-    const route = `${req.method} ${url.pathname}`;
     const [code, out] =
       route === 'POST /messages' ? await postMessage(body, claim)
       : route === 'GET /inbox' ? await getInbox(claim)
