@@ -105,7 +105,7 @@
       "displayName": "Tama Assistant",
       "role": "Operates a Tamarada install over its HTTP API.",
       "rulesUrl": "https://raw.githubusercontent.com/TimOfHyrule/Tama-AgentManager/main/RULES.md",
-      "repo": "TimOfHyrule/Tama-Agent-SystemAgent",
+      "repo": "TimOfHyrule/Tama-Agent-TamaAssisstant",
       "commitTrailer": "Agent: tama-assistant",
       "memory": {
         "page": "Agent memory",

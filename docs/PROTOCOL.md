@@ -48,7 +48,7 @@ Content-Type: application/json
 {
   "id":           "<client-chosen, so a retry cannot post twice>",
   "agent":        "tama-assistant",
-  "repo":         "TimOfHyrule/Tama-Agent-SystemAgent",
+  "repo":         "TimOfHyrule/Tama-Agent-TamaAssisstant",
   "session":      "<CLAUDE_CODE_REMOTE_SESSION_ID>",
   "to":           "tama-system",
   "kind":         "task",

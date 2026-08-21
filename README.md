@@ -17,7 +17,7 @@ so an approval stored there is an approval those agents can write.
 | Agent | Repo | Does |
 |---|---|---|
 | `tama-system` | Tamarada | Builds Tamarada itself |
-| `tama-assistant` | Tama-Agent-SystemAgent | Operates an install over its HTTP API |
+| `tama-assistant` | Tama-Agent-TamaAssisstant | Operates an install over its HTTP API |
 | `general-assistant` | Tama-Agent-GeneralAssisstant | Runs the life side on top of it |
 
 `agents.json` is the machine-readable version, and the one to trust: it records
