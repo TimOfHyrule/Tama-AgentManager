@@ -519,14 +519,17 @@ if (process.env.CHECK_NETWORK === '1' || process.env.GITHUB_TOKEN) {
       }
       if (res.ok) confirmed.push(repo);
       else if (res.status === 301) {
-        const moved = (res.headers.get('location') ?? '').replace('https://api.github.com/repos/', '');
+        const moved = (res.headers.get('location') ?? '').replace(/^.*\/repos\//, '');
         bad(`agents.json: ${repo} has been renamed${moved ? ` to ${moved}` : ''} -- the register names something that no longer answers`);
-      } else if (res.status === 404 && token) {
-        bad(`agents.json: ${repo} does not exist, or this token cannot see it`);
       } else {
-        // 404 without a token is a private repository and a deleted one
-        // wearing the same answer; 401 and 403 are about the caller, not the
-        // name. None of them is evidence either way.
+        // Only 301 is conclusive. A 404 is a deleted repository and a private
+        // one this caller cannot see wearing the same answer, and a token
+        // being present does not mean it can see anything beyond the
+        // repository it was minted for -- CI's own token cannot, which is how
+        // this check first failed on a repository that was perfectly fine.
+        // 401 and 403 are about the caller, not the name. Reporting a guess
+        // here is worse than reporting nothing, because the guess is what gets
+        // acted on.
         unknown.push(`${repo} (HTTP ${res.status})`);
       }
     }
