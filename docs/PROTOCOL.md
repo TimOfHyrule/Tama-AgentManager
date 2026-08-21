@@ -129,6 +129,41 @@ it is one experiment away.
 provisioning takes, and the budget above is about how often to pay for a
 session rather than how quickly one arrives.
 
+## Which chat gets woken
+
+There are many sessions on this account and several of them share a repository,
+so the repository cannot answer it and neither can a person reliably: chats get
+opened, half-used and abandoned, and an abandoned one looks exactly like a
+quiet one.
+
+The first design was a map of agent to session in an environment variable, and
+that is the shape of identifier this register has already watched go stale
+twice in a single day. Here it goes stale worse than a wrong repository name.
+The manager wakes a chat somebody closed weeks ago, that chat reads the inbox
+and may act on what it finds, and from the outside it is indistinguishable from
+everything working.
+
+So nothing declares it. **An agent's current session is whichever one checked
+in most recently**, which is self-maintaining in the only way that matters: the
+chat being used says so on every wake, and the chat that was abandoned stops
+saying anything. Nobody has to remember to clean up.
+
+Three things make that safe to rely on:
+
+- **A window.** A claim whose last check-in is older than `SESSION_STALE_HOURS`
+  is not a candidate, and the wake is recorded as suppressed with the age in
+  it. A session abandoned mid-task never checks in again, and without this it
+  would hold the claim forever.
+- **Switches are rows.** The claim moves by appending, never by editing, so
+  reading down the table answers *why did it wake that one* -- which is the
+  question this whole register exists to keep answerable.
+- **The branch comes along.** Not the session title, which an agent cannot read
+  about itself. Every session works on its own branch, so that is what makes a
+  list of them legible to a person.
+
+`WAKE_SESSIONS` survives as an override for pinning one deliberately. Being
+*required* to maintain it is the part that was wrong.
+
 ## Waking is the expensive part
 
 A message is a row. A wake is a whole Claude session, and the session list

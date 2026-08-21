@@ -20,12 +20,18 @@ fi
 
 REPO=$(git remote get-url origin 2>/dev/null || echo "")
 SESSION="${CLAUDE_CODE_REMOTE_SESSION_ID:-unknown}"
+# Not the session title -- an agent cannot read its own. The branch it can, and
+# every session works on its own, so it is what makes one of these legible to a
+# person looking at a list of them.
+BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
 
 # Checking in first means the manager knows this agent is awake before it
-# starts, which is what stops it being woken again while it works.
+# starts, which is what stops it being woken again while it works. It is also
+# how this session says it is the current one: nobody maintains a map of which
+# chat is which, so a chat that is never used again simply stops saying so.
 curl -fsS --max-time 10 -X POST "$MANAGER_URL/checkin" \
   -H "Authorization: Bearer $FLEET_SECRET" -H 'content-type: application/json' \
-  -d "{\"agent\":\"$AGENT\",\"session\":\"$SESSION\",\"state\":\"started\"}" >/dev/null 2>&1
+  -d "{\"agent\":\"$AGENT\",\"session\":\"$SESSION\",\"branch\":\"$BRANCH\",\"state\":\"started\"}" >/dev/null 2>&1
 
 # The || branch is not decoration. A session that cannot reach the manager and
 # says nothing behaves exactly like a session with an empty inbox and no

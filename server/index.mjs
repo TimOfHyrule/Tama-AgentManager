@@ -12,7 +12,13 @@ if (!FLEET_SECRET || FLEET_SECRET.length < 24) {
   throw new Error('FLEET_SECRET is unset or too short. This is the only wall keeping the internet out.');
 }
 const WAKE_BUDGET = Number(process.env.WAKE_BUDGET_PER_DAY ?? 3);
+// An override, not the source. Pinning one session by hand is occasionally
+// what you want; being required to is how the mapping goes stale.
 const WAKE_SESSIONS = JSON.parse(process.env.WAKE_SESSIONS ?? '{}');
+// After this long with no check-in, a session is not a candidate. A session
+// abandoned mid-task looks identical to a busy one from out here, and the
+// difference is that one of them is never coming back.
+const STALE_HOURS = Number(process.env.SESSION_STALE_HOURS ?? 24);
 // The fixed line, and only ever this line. docs/PROTOCOL.md says why a wake
 // carries nothing: a wake with a payload is a way to give an order without
 // having been authorized to give one.
@@ -155,12 +161,26 @@ async function getInbox(claim) {
 }
 
 async function postCheckin(body, claim) {
-  const { state, what = null, learned = null, session } = body;
+  const { state, what = null, learned = null, session, branch = null } = body;
   if (!['started', 'working', 'ended'].includes(state)) return [400, { error: 'state is started, working or ended' }];
   if (!session) return [400, { error: 'session is required' }];
-  await q('insert into checkin (agent, session, state, what, learned) values ($1,$2,$3,$4,$5)',
-    [claim.id, session, state, what, learned]);
-  return [201, { ok: true, agent: claim.id, state }];
+
+  await q('insert into checkin (agent, session, state, what, learned, branch) values ($1,$2,$3,$4,$5,$6)',
+    [claim.id, session, state, what, learned, branch]);
+
+  // Checking in is how a session claims to be this agent's current one. The
+  // claim only moves when a different session checks in, so an agent going
+  // quiet leaves the last one standing rather than clearing it.
+  const held = (await q(
+    'select session from session_claim where agent = $1 order by claimed_at desc limit 1', [claim.id])).rows[0];
+  let switched = false;
+  if (held?.session !== session) {
+    await q('insert into session_claim (agent, session, branch) values ($1,$2,$3)', [claim.id, session, branch]);
+    await audit('session.claimed', claim.id, { session, branch, replaced: held?.session ?? null });
+    switched = true;
+  }
+
+  return [201, { ok: true, agent: claim.id, state, currentSession: session, switched }];
 }
 
 // ── Waking ───────────────────────────────────────────────────────────────
@@ -190,14 +210,32 @@ async function postWake(body, claim) {
     `select count(*) from (${INBOX_SQL}) i where i.approved or i.grant_covers`, [target])).rows[0].count);
   if (!pending) return record(false, 'nothing in that inbox it is allowed to act on');
 
-  const session = WAKE_SESSIONS[target];
-  if (!session) return record(false, 'no session recorded for that agent — WAKE_SESSIONS is not configured');
+  // Which chat to wake. The override first, then whichever session most
+  // recently said it was this agent -- and nothing at all if that was long
+  // enough ago that it is probably a chat somebody closed.
+  let session = WAKE_SESSIONS[target];
+  let how = 'pinned in WAKE_SESSIONS';
+  if (!session) {
+    const claimed = (await q(
+      `select sc.session, sc.branch,
+              (select max(at) from checkin c where c.agent = sc.agent and c.session = sc.session) as last_seen
+         from session_claim sc
+        where sc.agent = $1
+        order by sc.claimed_at desc limit 1`, [target])).rows[0];
+    if (!claimed) return record(false, 'no session has ever checked in as that agent');
+    const ageHours = (Date.now() - new Date(claimed.last_seen).getTime()) / 3_600_000;
+    if (ageHours > STALE_HOURS) {
+      return record(false, `its last check-in was ${Math.round(ageHours)}h ago, past the ${STALE_HOURS}h window — that chat is probably closed`);
+    }
+    session = claimed.session;
+    how = `last checked in ${Math.round(ageHours)}h ago${claimed.branch ? ` on ${claimed.branch}` : ''}`;
+  }
 
   return new Promise((resolve) => {
     execFile('claude', ['-p', WAKE_TEXT, '--cloud', session], { timeout: 60_000 }, async (err) => {
       if (err) resolve(await record(false, `delivery failed: ${err.message.slice(0, 120)}`));
       else {
-        await audit('wake.delivered', claim.id, { target, reason, session });
+        await audit('wake.delivered', claim.id, { target, reason, session, how });
         resolve(await record(true, null));
       }
     });
