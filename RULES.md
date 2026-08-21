@@ -97,7 +97,7 @@ the wrong thing to reason from: a repository's visibility can change in one
 click, and nothing already committed becomes private again when it does. The
 database is the private side, permanently and by design.
 
-So nothing about him — his life, his accounts, his install, his data — goes in
+So nothing about him — his life, his accounts, his Tamarada, his data — goes in
 a commit, in any repository, ever. Not in a comment, not in an example, not in
 a test fixture, not in a `memory/` note.
 

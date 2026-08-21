@@ -10,14 +10,14 @@ and that was the point: a register that could only be read could not be a
 thing that broke. It is no longer true. `server/` is the manager — it holds the
 messages the agents send each other, the check-ins that say who is awake, and
 the approvals that are the only place authority comes from. It runs beside the
-install rather than inside it, on its own database, for the reason
-`docs/BOUNDARIES.md` gives: two of the three agents can write to that install,
+Tamarada rather than inside it, on its own database, for the reason
+`docs/BOUNDARIES.md` gives: two of the three agents can write to his Tamarada,
 so an approval stored there is an approval those agents can write.
 
 | Agent | Repo | Does |
 |---|---|---|
 | `tama-system` | Tamarada | Builds Tamarada itself |
-| `tama-assistant` | Tama-Agent-TamaAssisstant | Operates an install over its HTTP API |
+| `tama-assistant` | Tama-Agent-TamaAssisstant | Operates a Tamarada over its HTTP API |
 | `general-assistant` | Tama-Agent-GeneralAssisstant | Runs the life side on top of it |
 
 `agents.json` is the machine-readable version, and the one to trust: it records
@@ -39,10 +39,10 @@ a file three sessions cache.
 repository keeps working for every agent that has one — it just stops being the
 only thing that knows an agent exists.
 
-The records belong in the account's own Tamarada install. The copies in
+The records belong in his Tamarada. The copies in
 `agents.json` are the seed and the schema, so they can be validated in CI before
-anything is written to a live install. `tama-assistant` writes them there;
-`tama-system` does not touch a live install.
+anything is written to his live Tamarada. `tama-assistant` writes them there;
+`tama-system` does not touch his live Tamarada.
 
 ## Agents do not talk to each other
 
@@ -61,7 +61,7 @@ chain is a *suggestion*, and the recipient may raise it but not act on it.
 That last one is the defence against the real failure. Text from outside reaches
 one agent, and one agent can start a session on another. An injected instruction
 can only ever produce an unauthorized message, so it stops at the first agent
-instead of arriving at a live install wearing a task's clothes.
+instead of arriving at his live Tamarada wearing a task's clothes.
 
 ## Where a thing goes
 
@@ -176,11 +176,11 @@ A service of its own, on its own database, reachable at its own name. The
 migrations run at boot from `db/`, `/health` is the healthcheck, and
 `railway.json` carries the rest.
 
-Sharing a domain with the install is fine and sharing anything else is not. A
+Sharing a domain with his Tamarada is fine and sharing anything else is not. A
 subdomain is a DNS record; what has to stay separate is the process serving the
 request and the database behind it. Point the record straight at the manager
-rather than through anything the install also depends on — the manager is what
-should still answer when the install does not.
+rather than through anything his Tamarada also depends on — the manager is what
+should still answer when his Tamarada does not.
 
 One consequence of the shared name: a browser treats `manager.example.com` and
 `example.com` as one site, so the session cookie takes the `__Host-` prefix,
