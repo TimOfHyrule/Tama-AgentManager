@@ -6,15 +6,18 @@
 # It is a script in the agent's own repository rather than something the
 # manager sends, for the reason docs/PROTOCOL.md gives: what arrives over the
 # wire is data, and what an agent does is set in a tracked file with a diff.
+# Every path named below is written as it reads from an AGENT's repository,
+# not from this one. This file exists to be copied, so a reference that only
+# resolves here is a reference that is broken everywhere it actually runs.
 set -uo pipefail
 
-: "${MANAGER_URL:?MANAGER_URL is not set — see docs/AGENT-SETUP.md}"
-: "${FLEET_SECRET:?FLEET_SECRET is not set — see docs/AGENT-SETUP.md}"
+: "${MANAGER_URL:?MANAGER_URL is not set — see Tama-AgentManager/docs/AGENT-SETUP.md}"
+: "${FLEET_SECRET:?FLEET_SECRET is not set — see Tama-AgentManager/docs/AGENT-SETUP.md}"
 
 AGENT=$(node -p "require('./.agent.json').id" 2>/dev/null) || AGENT=""
 if [ -z "$AGENT" ]; then
   echo "WARNING: this repository has no .agent.json, so the manager cannot be told which agent this is."
-  echo "Do not write messages until that file exists. See docs/AGENT-SETUP.md."
+  echo "Do not write messages until that file exists. See Tama-AgentManager/docs/AGENT-SETUP.md."
   exit 0
 fi
 
