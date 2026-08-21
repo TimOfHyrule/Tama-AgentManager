@@ -433,7 +433,17 @@ section((clean) => {
 section(() => {
   for (const a of registry.agents) {
     const r = a.routine;
-    if (!r?.cronNote) continue;
+    if (!r) continue;
+    // Nothing here can ask whether a routine still exists -- that lives outside
+    // this repository entirely. What can be held is the shape, so a record that
+    // names one at least says which one, on what schedule, and into which
+    // session it fires rather than creating a new one.
+    for (const f of ['id', 'name', 'cron', 'cronNote', 'wakes']) {
+      if (!r[f]) bad(`agents.json: ${a.id} has a routine with no ${f}`);
+    }
+    if (r.id && !/^trig_/.test(r.id)) bad(`agents.json: ${a.id} routine id "${r.id}" is not a trigger id`);
+    if (r.wakes && !/^(session|cse)_/.test(r.wakes)) bad(`agents.json: ${a.id} routine wakes "${r.wakes}", which is not a session id`);
+    if (!r.cronNote) continue;
     const m = r.cronNote.match(/'(\d+ \d+ \* \* \*)'/);
     if (m && r.cron === m[1]) {
       note(`${a.id}: routine cron now matches the value its note said to switch to -- update the note`);

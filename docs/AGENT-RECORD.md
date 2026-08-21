@@ -42,7 +42,7 @@ agent exists.
 | `memory.collection` | required | Same space, as the database names it. |
 | `memory.exists` | required | Whether that space has actually been created yet. |
 | `keyId` | nullable | The paired agent key, by id. The handle you revoke. Never the secret. |
-| `routine` | nullable | The schedule that wakes this agent, if anything does. |
+| `routine` | nullable | The schedule that wakes this agent, if anything does — including `wakes`, the session it fires into rather than a new one it creates. |
 
 ## Renaming an id, and the worse thing
 
@@ -76,6 +76,29 @@ Both are cheap now and expensive later, and the line is exactly where the
 manager's database starts holding rows that point at an id. Before that, a
 rename is a search and replace. After it, it is a migration of somebody's live
 account.
+
+## A routine that stopped is indistinguishable from a quiet morning
+
+`routine` is the only field here describing something that lives entirely
+outside this repository, and it is the only one nothing can check. The first
+one recorded was auto-disabled the moment the environment it named was deleted.
+This file went on saying it was the schedule that wakes this agent, the six
+o'clock start simply stopped happening, and nothing anywhere said so — a
+morning that quietly stopped is shaped exactly like a quiet one.
+
+Two consequences worth carrying.
+
+**A routine wakes a session rather than creating one.** A fresh session every
+morning is a session with none of yesterday in it, and worse, it checks in and
+takes the agent's session claim away from the chat actually being used — so the
+next thing that tried to reach that agent would reach a throwaway nobody is
+watching.
+
+**`wakes` is a hand-kept identifier**, which is the shape this register has
+watched go stale more than once. It is written down rather than left implicit
+so that it is at least visible when it rots. It disappears when the manager
+owns the schedule, because the manager resolves an agent's current session from
+its check-ins and needs nobody to maintain the answer.
 
 ## What must never be in the record
 

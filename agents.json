@@ -48,7 +48,21 @@
     "not part of the record.",
     "",
     "Nothing in a record sets behaviour. `rulesUrl` says where the rules are; the",
-    "rules themselves stay in a file with a diff."
+    "rules themselves stay in a file with a diff.",
+    "",
+    "A routine's `wakes` is the session it fires into rather than a new one it",
+    "creates, which is the whole reason it exists: a fresh session every morning",
+    "is a session with none of yesterday in it, and it would also check in and",
+    "take this agent's session claim away from the chat actually being used.",
+    "",
+    "It is also the one hand-kept identifier left in this file, and it is written",
+    "down rather than hidden because of how the previous routine ended. That one",
+    "was auto-disabled when the environment it named was deleted, this file went",
+    "on recording it as the schedule that wakes this agent, and nothing anywhere",
+    "said otherwise -- a morning that silently stopped happening looks exactly",
+    "like a quiet one. Nothing here can check that a routine is alive. When the",
+    "manager owns the schedule it will resolve the target from the check-ins and",
+    "this field goes away."
   ],
   "recordVersion": 1,
   "$reusedIds": [
@@ -140,10 +154,11 @@
       },
       "keyId": null,
       "routine": {
-        "id": "trig_01SUm7JV8ZshUqDqpTcj3Jg6",
-        "name": "Tama-Life 每日開工 (06:00 Vancouver)",
+        "id": "trig_013fDrd9H7hczBWm2ApPG3A8",
+        "name": "general-assistant 每日開工 (06:00 Vancouver)",
         "cron": "0 13 * * *",
-        "cronNote": "UTC. 06:00 PDT. Becomes 05:00 local when Vancouver returns to PST in November -- change to '0 14 * * *' then."
+        "cronNote": "UTC. 06:00 PDT. Becomes 05:00 local when Vancouver returns to PST in November -- change to '0 14 * * *' then.",
+        "wakes": "session_01SDYqDuyvSfWsFUkMjyR8Y5"
       },
       "$writes": [
         "its own repo",
