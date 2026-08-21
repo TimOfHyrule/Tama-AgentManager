@@ -56,7 +56,7 @@ it is not permission.
 defence against the failure that makes this system worth writing down at all:
 text from outside reaches one agent, and one agent can reach another. If an
 injected instruction can only ever produce an unauthorized message, it stops at
-the first agent instead of arriving at somebody's live install wearing a task's
+the first agent instead of arriving at somebody's live Tamarada wearing a task's
 clothes.
 
 ### Who may write which value
@@ -133,7 +133,7 @@ name one.
 
 **Anything about him.** Messages are the most conversational thing in this
 system and therefore the most likely place to leak a sentence about somebody's
-week. The seed lives in a public repository. The live rows live in the install
+week. The seed lives in a public repository. The live rows live in his Tamarada
 and are still not a place for it — a message is about a task, and a task is not
 about his life.
 
@@ -143,7 +143,7 @@ file, and it comes the same way every session.
 
 ## Where they live
 
-The live rows go in the account's own install, next to the agent records, with
+The live rows go in his Tamarada, next to the agent records, with
 the key providing the isolation exactly as it does for everything else.
 `messages.json` here is the seed and the schema: the shape, held to it by
 `scripts/check.mjs` in CI, plus the messages that have actually been sent.

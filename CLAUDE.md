@@ -5,7 +5,7 @@ work under, the check that keeps both honest, and — since the manager landed �
 the one service in this system that runs.
 
 `server/` is that service. It holds messages, check-ins, grants and approvals in
-its own database, beside the install rather than inside it. Editing it is
+its own database, beside the Tamarada rather than inside it. Editing it is
 editing something live, in a way editing the register is not.
 
 If you are here to change something, the two files that matter are:
@@ -29,7 +29,7 @@ claim is not. `docs/PROTOCOL.md` defines what an agent and the manager say to
 each other, and which of the three questions it asks are walls and which is
 only a claim. `docs/BOUNDARIES.md` says where a thing goes — including the
 third place, which is the manager, and why an approval cannot live in his
-install. `README.md` explains why this is a repository and not a folder in one
+Tamarada. `README.md` explains why this is a repository and not a folder in one
 of the others.
 
 ## Before you push

@@ -23,8 +23,8 @@
       "what": "The register and the shared rules in this repository: who exists, what each owns, how they talk."
     },
     {
-      "id": "install-operations",
-      "what": "Operating an existing install over its HTTP API: pages, collections and records that already exist."
+      "id": "tamarada-operations",
+      "what": "Operating his Tamarada over its HTTP API: pages, collections and records that already exist."
     }
   ],
   "grants": []

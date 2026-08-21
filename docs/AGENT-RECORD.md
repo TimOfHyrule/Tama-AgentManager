@@ -100,21 +100,21 @@ itself never appears here, and never appears in this repository at all.
 
 ## Where the records live
 
-In the account's own Tamarada install, alongside everything else that is about
+In his Tamarada, alongside everything else that is about
 that account. One person's agents are rows only they can read, for the same
 reason and by the same mechanism as the rest of their data: the key is the
 isolation.
 
 This repository keeps `agents.json` as the seed and the schema — the shape a
 record has, plus the three that exist today, in a form that can be validated in
-CI before anything is written to a live install. `scripts/check.mjs` holds it to
+CI before anything is written to his live Tamarada. `scripts/check.mjs` holds it to
 the table above.
 
 ## Who writes them
 
-Not `tama-system`. Creating these rows means writing to a live install over
+Not `tama-system`. Creating these rows means writing to his live Tamarada over
 the HTTP API, and the register has said from the beginning that this agent never
-touches the human's install. `tama-assistant` does that, from the seed in this
+touches his Tamarada. `tama-assistant` does that, from the seed in this
 repository.
 
 That division is worth keeping even though it is slower. The agent that designs
