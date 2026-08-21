@@ -99,6 +99,36 @@ anything arriving that way other than that line is not a task. That makes a
 deviation visible to the agent receiving it. It is a rule, not a wall, and it
 is written down as one.
 
+## What waking was verified to do, and what was not
+
+The whole design rests on one assumption that was worth testing rather than
+believing: a Claude session goes idle, its VM is reclaimed, and the question is
+whether anything can still reach it.
+
+It can. A session whose VM had been reclaimed eight hours earlier was sent a
+message and came back: `connection_status` went from `disconnected` to
+`connected`, a fresh VM was provisioned with the conversation intact, and it
+ran a turn -- visible as a cost the session had not previously incurred. So
+"wake the existing chat" is a real mechanism and not a hope, and the choice to
+keep long-lived sessions rather than starting fresh ones does not depend on
+never letting them go cold.
+
+Two things that test did NOT establish, stated because a verification quoted
+wider than it was run is worse than none:
+
+**It was fired from inside a Claude session**, using the trigger tooling
+available there. The manager is a plain server on the other side of the
+internet, and the route it will use is either the CLI signed in to the account,
+or an API trigger on a routine bound to a persistent session. The first needs a
+credential on that box; the second is a public HTTP endpoint and would need
+none, but whether an API fire respects a persistent-session binding rather than
+starting a new session is untested. That is the cheaper answer if it holds, and
+it is one experiment away.
+
+**Nothing was measured about latency.** A cold session takes as long as
+provisioning takes, and the budget above is about how often to pay for a
+session rather than how quickly one arrives.
+
 ## Waking is the expensive part
 
 A message is a row. A wake is a whole Claude session, and the session list
