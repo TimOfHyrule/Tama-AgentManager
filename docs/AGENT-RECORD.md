@@ -31,7 +31,8 @@ agent exists.
 
 | Field | | Meaning |
 |---|---|---|
-| `id` | required | Stable identifier. Never reused, never renamed — everything else points here. |
+| `id` | required | Stable identifier. Everything else points here — see below for what happens when one has to change anyway. |
+| `previousIds` | required | Every id this agent has been known by, oldest first. Empty is an answer; leaving it out is not. |
 | `displayName` | required | What a person sees in a list. Renaming this is safe; renaming `id` is not. |
 | `role` | required | One sentence on what this agent is for. |
 | `rulesUrl` | required | Where the agent fetches its shared rules at session start. |
@@ -42,6 +43,39 @@ agent exists.
 | `memory.exists` | required | Whether that space has actually been created yet. |
 | `keyId` | nullable | The paired agent key, by id. The handle you revoke. Never the secret. |
 | `routine` | nullable | The schedule that wakes this agent, if anything does. |
+
+## Renaming an id, and the worse thing
+
+This file used to say an id is never reused and never renamed, full stop. That
+was the right instinct and the wrong sentence, because it described a rule
+nothing enforced and gave no answer for the day one has to change — and that
+day came about a week in, when all three ids turned out to name *repositories*
+rather than jobs, and the repositories had since been renamed out from under
+them.
+
+A rule with no procedure gets broken quietly. So:
+
+**Renaming** is survivable and recorded. The old id goes into `previousIds`,
+every reference in this repository moves with the record, and a commit trailer
+written under the old name stays readable because the record still says who it
+was. What a rename must never do is leave two answers in circulation with
+nothing connecting them.
+
+**Reuse is the dangerous one**, and it is a different thing entirely. When an id
+starts naming a *different* agent, every old reference silently redirects: a
+message addressed to one agent now reads as addressed to another, and nothing
+errors. It is the one change that turns correct history into wrong history
+without touching it.
+
+So a reuse is declared in `reusedIds` in `agents.json`, with what it used to
+name, what it names now, and why. `scripts/check.mjs` refuses any id that
+collides with another agent's `previousIds` unless that collision is listed
+there. The check does not stop you; it stops you doing it by accident.
+
+Both are cheap now and expensive later, and the line is exactly where the
+manager's database starts holding rows that point at an id. Before that, a
+rename is a search and replace. After it, it is a migration of somebody's live
+account.
 
 ## What must never be in the record
 
@@ -78,9 +112,9 @@ the table above.
 
 ## Who writes them
 
-Not `project-station`. Creating these rows means writing to a live install over
+Not `tama-system`. Creating these rows means writing to a live install over
 the HTTP API, and the register has said from the beginning that this agent never
-touches the human's install. `tama-system` does that, from the seed in this
+touches the human's install. `tama-assistant` does that, from the seed in this
 repository.
 
 That division is worth keeping even though it is slower. The agent that designs

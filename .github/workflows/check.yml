@@ -20,3 +20,8 @@ jobs:
         with:
           node-version: '22'
       - run: node scripts/check.mjs
+        env:
+          # Lets the register's repository names be checked against GitHub
+          # rather than only against each other. Two copies of a wrong name
+          # agreeing is what this repository shipped for weeks.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

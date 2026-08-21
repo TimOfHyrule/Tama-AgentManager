@@ -40,7 +40,7 @@ a sentence in a rules file.
 
 ## `area` is a closed list, and that is the point
 
-The obvious design has `scope` as a sentence — "may ask project-station to
+The obvious design has `scope` as a sentence — "may ask tama-system to
 change platform infrastructure". It reads perfectly and it cannot be checked,
 because deciding whether a task falls inside a sentence is reading
 comprehension, and the manager is a lookup.

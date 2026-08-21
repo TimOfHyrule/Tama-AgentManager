@@ -22,8 +22,8 @@
   "messages": [
     {
       "id": "msg-0001",
-      "from": "project-station",
-      "to": "tama-system",
+      "from": "tama-system",
+      "to": "tama-assistant",
       "kind": "task",
       "body": "Create the agent records in the install from the seed in Tama-AgentManager: one collection, one record per entry, fields exactly as docs/AGENT-RECORD.md defines. Do not copy $-prefixed notes, do not invent a keyId, do not put behaviour in a record, do not touch the read grants. Report which fields did not map cleanly onto the install's data model.",
       "inReplyTo": null,
