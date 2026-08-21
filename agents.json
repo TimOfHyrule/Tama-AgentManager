@@ -17,8 +17,8 @@
   ],
   "self": {
     "repo": "TimOfHyrule/Tama-AgentManager",
-    "writtenBy": "project-station",
-    "why": "It carries the rules the other two run under, and project-station is the only agent whose job is the machinery rather than the running of it."
+    "writtenBy": "tama-system",
+    "why": "It carries the rules the other two run under, and tama-system is the only agent whose job is the machinery rather than the running of it."
   },
   "$sharedRules": [
     "How RULES.md reaches an agent. Declaring the marketplace and plugin in a",
@@ -51,14 +51,37 @@
     "rules themselves stay in a file with a diff."
   ],
   "recordVersion": 1,
+  "$reusedIds": [
+    "An id that now names a different agent than it used to. docs/AGENT-RECORD.md",
+    "says ids are never reused, and this is the exception being taken on purpose,",
+    "before the manager's database holds a single row that points at one.",
+    "",
+    "`tama-system` used to name the agent that operates the install; it now names",
+    "the agent that builds Tamarada itself. Every reference in this repository was",
+    "moved with the records rather than left to resolve to the wrong agent, and",
+    "scripts/check.mjs refuses any collision between an id and another agent's",
+    "previousIds unless it is listed here."
+  ],
+  "reusedIds": [
+    {
+      "id": "tama-system",
+      "wasFor": "tama-assistant",
+      "nowFor": "tama-system",
+      "when": "2026-08-21",
+      "why": "The names described repositories rather than jobs, and the repositories had been renamed out from under them."
+    }
+  ],
   "agents": [
     {
-      "id": "project-station",
-      "displayName": "Project Station",
+      "id": "tama-system",
+      "previousIds": [
+        "project-station"
+      ],
+      "displayName": "Tama System",
       "role": "Builds Tamarada itself. The only agent that changes the API the other two call.",
       "rulesUrl": "https://raw.githubusercontent.com/TimOfHyrule/Tama-AgentManager/main/RULES.md",
-      "repo": "TimOfHyrule/Project-Station",
-      "commitTrailer": "Agent: project-station",
+      "repo": "TimOfHyrule/Tamarada",
+      "commitTrailer": "Agent: tama-system",
       "memory": {
         "page": "Platform memory",
         "collection": "platform_memory",
@@ -74,12 +97,16 @@
       ]
     },
     {
-      "id": "tama-system",
-      "displayName": "Tama System",
+      "id": "tama-assistant",
+      "previousIds": [
+        "tama-system",
+        "tama-agent"
+      ],
+      "displayName": "Tama Assistant",
       "role": "Operates a Tamarada install over its HTTP API.",
       "rulesUrl": "https://raw.githubusercontent.com/TimOfHyrule/Tama-AgentManager/main/RULES.md",
       "repo": "TimOfHyrule/Tama-Agent-SystemAgent",
-      "commitTrailer": "Agent: tama-system",
+      "commitTrailer": "Agent: tama-assistant",
       "memory": {
         "page": "Agent memory",
         "collection": "agent_memory",
@@ -96,12 +123,16 @@
       ]
     },
     {
-      "id": "tama-general",
-      "displayName": "Tama Life",
+      "id": "general-assistant",
+      "previousIds": [
+        "tama-general",
+        "tama-life"
+      ],
+      "displayName": "General Assistant",
       "role": "Runs the life side on top of that install.",
       "rulesUrl": "https://raw.githubusercontent.com/TimOfHyrule/Tama-AgentManager/main/RULES.md",
       "repo": "TimOfHyrule/Tama-Agent-GeneralAssisstant",
-      "commitTrailer": "Agent: tama-general",
+      "commitTrailer": "Agent: general-assistant",
       "memory": {
         "page": "Life memory",
         "collection": "life_memory",
@@ -135,25 +166,25 @@
   ],
   "readGrants": [
     {
-      "reader": "tama-system",
+      "reader": "tama-assistant",
       "page": "Life memory",
       "why": "'he is away next week' changes what is worth building",
       "issued": false
     },
     {
-      "reader": "tama-general",
+      "reader": "general-assistant",
       "page": "Agent memory",
       "why": "'the nightly report broke on Tuesday' explains a bad Tuesday",
       "issued": false
     },
     {
-      "reader": "tama-system",
+      "reader": "tama-assistant",
       "page": "Platform memory",
       "why": "the platform changing is the thing that invalidates what this agent knows",
       "issued": false
     },
     {
-      "reader": "tama-general",
+      "reader": "general-assistant",
       "page": "Platform memory",
       "why": "same, one step further away",
       "issued": false

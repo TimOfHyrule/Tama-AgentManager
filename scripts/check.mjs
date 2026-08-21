@@ -206,6 +206,56 @@ section((clean) => {
   if (unauthorized) note(`messages.json: ${unauthorized} with no authority chain -- those are suggestions, not tasks`);
 });
 
+// ── Ids that have changed, and the one kind of change that lies ──────────
+//
+// docs/AGENT-RECORD.md used to say an id is never reused and never renamed. It
+// now says what to do instead, because that rule broke about a week in and a
+// rule with no procedure gets broken quietly.
+//
+// A RENAME is survivable: the old id goes in previousIds, references move with
+// the record, and history written under the old name stays readable. REUSE is
+// the one that lies -- when an id starts naming a different agent, every old
+// reference silently redirects and nothing errors. So it has to be declared.
+section((clean) => {
+  const declared = new Map((registry.reusedIds ?? []).map((r) => [r.id, r]));
+
+  for (const r of registry.reusedIds ?? []) {
+    for (const f of ['id', 'wasFor', 'nowFor', 'when', 'why']) {
+      if (!r[f]) bad(`agents.json reusedIds: an entry is missing ${f}`);
+    }
+    if (r.nowFor && !byId.has(r.nowFor)) bad(`agents.json reusedIds: "${r.nowFor}" is not an agent in the register`);
+  }
+
+  const seen = new Map();
+  for (const a of registry.agents) {
+    if (!Array.isArray(a.previousIds)) {
+      bad(`agents.json: ${a.id} does not record previousIds (an empty list is an answer; leaving it out is not)`);
+      continue;
+    }
+    if (a.previousIds.includes(a.id)) bad(`agents.json: ${a.id} lists its own id as a previous one`);
+    for (const old of a.previousIds) {
+      if (seen.has(old)) bad(`agents.json: "${old}" is a previous id of both ${seen.get(old)} and ${a.id}`);
+      seen.set(old, a.id);
+    }
+  }
+
+  // The collision this check exists for: an id currently in use that used to
+  // belong to somebody else.
+  for (const a of registry.agents) {
+    const previousOwner = seen.get(a.id);
+    if (!previousOwner || previousOwner === a.id) continue;
+    const d = declared.get(a.id);
+    if (!d) {
+      bad(`agents.json: "${a.id}" now names ${a.id} but used to name ${previousOwner}, and that reuse is not declared in reusedIds -- every old reference to it silently points at the wrong agent`);
+    } else if (d.wasFor !== previousOwner) {
+      bad(`agents.json reusedIds: "${a.id}" is declared as having named ${d.wasFor}, but previousIds says ${previousOwner}`);
+    }
+  }
+
+  const renamed = registry.agents.filter((a) => a.previousIds?.length).length;
+  clean(`agents.json: ${renamed} agent(s) carry previous ids, ${declared.size} reuse(s) declared`);
+});
+
 // ── Grants are records, and none of them claims to exist ─────────────────
 //
 // A grant is the only thing an agent can cite to authorize itself, so the
@@ -355,7 +405,14 @@ section((clean) => {
     note('git log unavailable -- skipping the commit trailer check');
     return;
   }
-  const trailers = registry.agents.map((a) => a.commitTrailer);
+  // Every name an agent has ever signed with, not only its current one. An id
+  // that changes must not retroactively unsign the history written under the
+  // old one -- that would make renaming cost the answer to "who changed this",
+  // which is the entire thing the trailer exists to provide.
+  const trailers = registry.agents.flatMap((a) => [
+    a.commitTrailer,
+    ...(a.previousIds ?? []).map((old) => `Agent: ${old}`),
+  ]);
   const unsigned = [];
   for (const entry of log.split('\x1e')) {
     if (!entry.trim()) continue;
@@ -428,6 +485,62 @@ section((clean) => {
   }
   clean(`no credentials, emails, hosts or personal URLs in ${files.length} files`);
 });
+
+// ── The repositories in the register still answer to those names ────────
+//
+// Everything above this line is offline, and that is usually the right call.
+// But this check exists because of a failure nothing offline could have
+// caught: agents.json and README.md both named TimOfHyrule/Project-Station,
+// they agreed with each other perfectly, the check above reported ok on that
+// agreement -- and the repository had been renamed weeks earlier. Two copies
+// of a wrong fact agreeing is exactly what an inventory looks like on the way
+// to being useless.
+//
+// GitHub answers 301 for a repository that has been renamed, and the redirect
+// names the new one. That is the whole check. It runs only when asked, so the
+// default stays offline and CI opts in.
+if (process.env.CHECK_NETWORK === '1' || process.env.GITHUB_TOKEN) {
+  await (async () => {
+    const token = process.env.GITHUB_TOKEN;
+    const repos = [registry.self.repo, ...registry.agents.map((a) => a.repo).filter(Boolean)];
+    const confirmed = [];
+    const unknown = [];
+    for (const repo of repos) {
+      let res;
+      try {
+        res = await fetch(`${process.env.GITHUB_API ?? 'https://api.github.com'}/repos/${repo}`, {
+          redirect: 'manual',
+          headers: { accept: 'application/vnd.github+json', 'user-agent': 'tama-agentmanager-check',
+                     ...(token ? { authorization: `Bearer ${token}` } : {}) },
+        });
+      } catch (e) {
+        unknown.push(`${repo} (${e.message})`);
+        continue;
+      }
+      if (res.ok) confirmed.push(repo);
+      else if (res.status === 301) {
+        const moved = (res.headers.get('location') ?? '').replace('https://api.github.com/repos/', '');
+        bad(`agents.json: ${repo} has been renamed${moved ? ` to ${moved}` : ''} -- the register names something that no longer answers`);
+      } else if (res.status === 404 && token) {
+        bad(`agents.json: ${repo} does not exist, or this token cannot see it`);
+      } else {
+        // 404 without a token is a private repository and a deleted one
+        // wearing the same answer; 401 and 403 are about the caller, not the
+        // name. None of them is evidence either way.
+        unknown.push(`${repo} (HTTP ${res.status})`);
+      }
+    }
+    // Reported by what was actually established. An earlier version of this
+    // said "every repository still answers to its name" after learning
+    // nothing at all, which is the failure it was written to catch, committed
+    // inside the catcher.
+    if (confirmed.length) ok(`${confirmed.length} of ${repos.length} repositories confirmed to still answer to the recorded name`);
+    if (unknown.length) note(`no answer about ${unknown.length} of ${repos.length}: ${unknown.join(', ')}`);
+    if (!confirmed.length) note('this run verified no repository name -- treat it as unchecked, not as passed');
+  })();
+} else {
+  note('repository names not checked against GitHub -- set CHECK_NETWORK=1 to include it');
+}
 
 console.log(failed ? `\n${failed} problem(s).` : '\nAll checks passed.');
 process.exit(failed ? 1 : 0);

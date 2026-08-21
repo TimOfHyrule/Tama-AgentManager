@@ -7,7 +7,7 @@ walls; this is the part somebody has to do by hand.
 ## 1. `.agent.json`, in that agent's own repository
 
 ```json
-{ "id": "tama-system" }
+{ "id": "tama-assistant" }
 ```
 
 One field, and the `id` has to be the one `agents.json` records. This is how the

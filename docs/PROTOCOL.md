@@ -47,10 +47,10 @@ Content-Type: application/json
 
 {
   "id":           "<client-chosen, so a retry cannot post twice>",
-  "agent":        "tama-system",
+  "agent":        "tama-assistant",
   "repo":         "TimOfHyrule/Tama-Agent-SystemAgent",
   "session":      "<CLAUDE_CODE_REMOTE_SESSION_ID>",
-  "to":           "project-station",
+  "to":           "tama-system",
   "kind":         "task",
   "body":         "...",
   "inReplyTo":    null,
@@ -64,7 +64,7 @@ from the environment, `id` from anything unique. Only `authorizedBy` is a
 judgement, and that is the third question.
 
 `repo` is there to be checked against the register — an agent claiming to be
-`tama-system` while working in another agent's repository is a disagreement
+`tama-assistant` while working in another agent's repository is a disagreement
 worth recording. **It does not reject the request.** It is a cross-check, not a
 gate; treating it as a gate would be the same mistake as calling the claim a
 verification.

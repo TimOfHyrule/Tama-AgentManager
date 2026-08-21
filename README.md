@@ -16,9 +16,9 @@ so an approval stored there is an approval those agents can write.
 
 | Agent | Repo | Does |
 |---|---|---|
-| `project-station` | Project-Station | Builds Tamarada itself |
-| `tama-system` | Tama-Agent-SystemAgent | Operates an install over its HTTP API |
-| `tama-general` | Tama-Agent-GeneralAssisstant | Runs the life side on top of it |
+| `tama-system` | Tamarada | Builds Tamarada itself |
+| `tama-assistant` | Tama-Agent-SystemAgent | Operates an install over its HTTP API |
+| `general-assistant` | Tama-Agent-GeneralAssisstant | Runs the life side on top of it |
 
 `agents.json` is the machine-readable version, and the one to trust: it records
 what each agent owns, which memory space it writes, how it signs a commit, and
@@ -41,8 +41,8 @@ only thing that knows an agent exists.
 
 The records belong in the account's own Tamarada install. The copies in
 `agents.json` are the seed and the schema, so they can be validated in CI before
-anything is written to a live install. `tama-system` writes them there;
-`project-station` does not touch a live install.
+anything is written to a live install. `tama-assistant` writes them there;
+`tama-system` does not touch a live install.
 
 ## Agents do not talk to each other
 
