@@ -3,7 +3,6 @@
 // returns is ever an instruction.
 import http from 'node:http';
 import { timingSafeEqual } from 'node:crypto';
-import { execFile } from 'node:child_process';
 import { q, migrate } from './db.mjs';
 import { agents, areas, rulesUrl, repoDisagrees } from './register.mjs';
 import * as auth from './auth.mjs';
@@ -21,10 +20,6 @@ const WAKE_SESSIONS = JSON.parse(process.env.WAKE_SESSIONS ?? '{}');
 // abandoned mid-task looks identical to a busy one from out here, and the
 // difference is that one of them is never coming back.
 const STALE_HOURS = Number(process.env.SESSION_STALE_HOURS ?? 24);
-// The fixed line, and only ever this line. docs/PROTOCOL.md says why a wake
-// carries nothing: a wake with a payload is a way to give an order without
-// having been authorized to give one.
-const WAKE_TEXT = '執行喚醒程序';
 
 const json = (res, code, body) => {
   res.writeHead(code, { 'content-type': 'application/json; charset=utf-8' });
@@ -207,30 +202,44 @@ async function postCheckin(body, claim) {
 
 // ── Waking ───────────────────────────────────────────────────────────────
 //
-// The manager is a server, so its deliberation is free; only the session it
-// starts costs anything. All of the frequency logic therefore lives here, on
-// the side that does not cost money.
+// The manager decides who should look at their inbox sooner. It does not
+// deliver that, and the difference is deliberate.
+//
+// Delivering means putting a message into a running Claude session, which
+// needs a credential for the whole account sitting on this machine -- and the
+// point of this machine is that it should not have to be trusted with much.
+// (The other route, firing a routine over its HTTP endpoint, was tried: it
+// ignores the routine's binding to an existing session and starts a fresh one
+// with no repository checked out, so there is nothing there to read an inbox
+// with.)
+//
+// So the agents poll, each on its own schedule into its own standing session,
+// and a wake is a request the next poll satisfies. The deliberation below is
+// still worth doing: it is what stops a request being recorded for an agent
+// that has nothing to act on, is already working, or has no session at all.
 async function postWake(body, claim) {
   const target = body.agent ?? body.to;
   const reason = body.reason ?? 'unstated';
   if (!agents.has(target)) return [400, { error: `"${target}" is not an agent in the register` }];
 
-  const record = async (delivered, suppressed) => {
-    await q('insert into wake (agent, reason, delivered, suppressed_reason) values ($1,$2,$3,$4)',
-      [target, reason, delivered, suppressed ?? null]);
-    return [200, { agent: target, delivered, suppressed: suppressed ?? undefined }];
+  const record = async (outcome, why) => {
+    await q(`insert into wake (agent, reason, delivered, outcome, suppressed_reason)
+             values ($1,$2,false,$3,$4)`, [target, reason, outcome, why ?? null]);
+    return [200, { agent: target, outcome, why: why ?? undefined }];
   };
+  const suppress = (why) => record('suppressed', why);
 
   const last = (await q('select state, at from checkin where agent = $1 order by at desc limit 1', [target])).rows[0];
-  if (last && last.state !== 'ended') return record(false, 'already checked in as working — it will read its own inbox');
+  if (last && last.state !== 'ended') return suppress('already checked in as working — it will read its own inbox');
 
-  const spent = Number((await q(
-    `select count(*) from wake where agent = $1 and delivered and at > now() - interval '1 day'`, [target])).rows[0].count);
-  if (spent >= WAKE_BUDGET) return record(false, `daily wake budget spent (${spent}/${WAKE_BUDGET})`);
+  const requested = Number((await q(
+    `select count(*) from wake where agent = $1 and outcome = 'queued'
+      and at > now() - interval '1 day'`, [target])).rows[0].count);
+  if (requested >= WAKE_BUDGET) return suppress(`daily request budget spent (${requested}/${WAKE_BUDGET})`);
 
   const pending = Number((await q(
     `select count(*) from (${INBOX_SQL}) i where i.approved or i.grant_covers`, [target])).rows[0].count);
-  if (!pending) return record(false, 'nothing in that inbox it is allowed to act on');
+  if (!pending) return suppress('nothing in that inbox it is allowed to act on');
 
   // Which chat to wake. The override first, then whichever session most
   // recently said it was this agent -- and nothing at all if that was long
@@ -244,24 +253,17 @@ async function postWake(body, claim) {
          from session_claim sc
         where sc.agent = $1
         order by sc.claimed_at desc limit 1`, [target])).rows[0];
-    if (!claimed) return record(false, 'no session has ever checked in as that agent');
+    if (!claimed) return suppress('no session has ever checked in as that agent');
     const ageHours = (Date.now() - new Date(claimed.last_seen).getTime()) / 3_600_000;
     if (ageHours > STALE_HOURS) {
-      return record(false, `its last check-in was ${Math.round(ageHours)}h ago, past the ${STALE_HOURS}h window — that chat is probably closed`);
+      return suppress(`its last check-in was ${Math.round(ageHours)}h ago, past the ${STALE_HOURS}h window — that chat is probably closed`);
     }
     session = claimed.session;
     how = `last checked in ${Math.round(ageHours)}h ago${claimed.branch ? ` on ${claimed.branch}` : ''}`;
   }
 
-  return new Promise((resolve) => {
-    execFile('claude', ['-p', WAKE_TEXT, '--cloud', session], { timeout: 60_000 }, async (err) => {
-      if (err) resolve(await record(false, `delivery failed: ${err.message.slice(0, 120)}`));
-      else {
-        await audit('wake.delivered', claim.id, { target, reason, session, how });
-        resolve(await record(true, null));
-      }
-    });
-  });
+  await audit('wake.queued', claim.id, { target, reason, session, how });
+  return record('queued', `${how} — it will see this on its next scheduled read`);
 }
 
 // ── Server ───────────────────────────────────────────────────────────────
