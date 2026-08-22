@@ -104,7 +104,7 @@ export async function boardPage(session) {
          join (select agent, max(claimed_at) as m from session_claim group by agent) latest
            on latest.agent = sc.agent and latest.m = sc.claimed_at
         order by sc.agent`).then((r) => r.rows),
-    q(`select agent, reason, delivered, suppressed_reason, at from wake
+    q(`select agent, reason, outcome, suppressed_reason, at from wake
         order by at desc limit 8`).then((r) => r.rows),
   ]);
 
@@ -152,9 +152,9 @@ export async function boardPage(session) {
     <div class="card"><div class="row">
       <div class="grow"><strong>${esc(w.agent)}</strong>
         <span class="dim">· ${esc(w.reason)} · ${esc(ago(w.at))}</span></div>
-      <div class="${w.delivered ? 'dim' : 'warn'}">${
-        w.delivered ? 'delivered' : esc(w.suppressed_reason ?? 'not delivered')}</div>
-    </div></div>`).join('') : '<p class="empty">No wakes recorded.</p>';
+      <div class="${w.outcome === 'queued' ? 'dim' : 'warn'}">${
+        esc(w.outcome === 'queued' ? 'queued' : (w.suppressed_reason ?? w.outcome))}</div>
+    </div></div>`).join('') : '<p class="empty">Nothing has been asked for.</p>';
 
   const agentOptions = [...agents.keys()].map((a) => `<option>${esc(a)}</option>`).join('');
 
@@ -191,8 +191,10 @@ export async function boardPage(session) {
       <p style="margin:.8rem 0 0"><button>Issue grant</button></p>
     </form>
 
-    <h2>Recent wakes</h2>
-    <p class="dim">Including the ones that did not happen. A dropped wake with no trace makes a
-       busy day and a broken one look identical.</p>
+    <h2>Asked to look</h2>
+    <p class="dim">The manager does not deliver these — the agents read their inboxes on their
+       own schedules, and a request is what the next read satisfies. The ones it declined to
+       record are here too, with the reason: a dropped request leaving no trace makes a busy day
+       and a broken one look identical.</p>
     ${wakesHtml}`);
 }

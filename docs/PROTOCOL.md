@@ -80,24 +80,34 @@ verification.
 
 ## Waking
 
-An agent is woken by a message queued into its existing Claude session. The
-text of that message is **always the same fixed line**, and it carries nothing:
-it says to run the wake routine, and the wake routine calls `GET /inbox`. What
-is being asked lives in the inbox, where it has to pass the three questions
-again.
+The manager decides who should look sooner. It does not deliver that, and the
+gap is worth stating rather than glossing.
 
-The reason it carries nothing is the same reason a memory note is not an
-instruction. A wake with a payload is a way to give an order without ever
-having been authorized to give one, and the manager — a server on the internet
-— must not be able to do that. A wake that says only "go and look" cannot be an
-instruction no matter who sends it.
+Delivering means putting a message into a running Claude session. Doing it from
+here needs a credential for the whole account sitting on this machine, and the
+point of this machine is that it should not have to be trusted with much.
+Firing a routine over its HTTP endpoint was the alternative and it does not
+work: the fire ignores the routine's binding to an existing session and starts
+a fresh one with no repository checked out, so there is nothing there to read
+an inbox with. The same routine fired on its schedule reaches the standing
+session correctly, which is a difference in behaviour by how it was fired
+rather than by what it is.
 
-There is a cost to naming honestly: text queued into a session arrives as an
-ordinary turn, and nothing at the platform level marks it untrusted. The fixed
-line is a convention, so an agent's own `CLAUDE.md` carries the other half —
-anything arriving that way other than that line is not a task. That makes a
-deviation visible to the agent receiving it. It is a rule, not a wall, and it
-is written down as one.
+So each agent polls, on its own schedule, into its own standing session — and
+a wake is a **request that the next read satisfies**. `POST /wake` records it
+and returns; nothing is sent anywhere.
+
+That makes the deliberation below the whole of the route rather than a prelude
+to it. A request is refused, with the reason, when the agent is already checked
+in as working, when nothing in its inbox is authorised, when no session has
+ever claimed to be that agent, and when the claim is stale enough that the chat
+is probably closed. Those refusals are recorded, because a request that
+vanished silently is the failure this file keeps naming.
+
+What the agent is told when it reads is nothing at all: the routine's prompt
+says to run the wake routine, and the wake routine calls `GET /inbox`. A read
+carries no instruction from the manager, so a compromised manager cannot issue
+one — the most it can do is cause somebody to look.
 
 ## What waking was verified to do, and what was not
 
